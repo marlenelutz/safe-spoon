@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Query cluster explorer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f4f5f7; color: #1a1a1a;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* Header */
+#header {
+  padding: 9px 18px; background: white; border-bottom: 1px solid #e5e5e5;
+  display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+}
+#header h1 { font-size: 14px; font-weight: 600; }
+#header-sub { font-size: 11px; color: #aaa; margin-top: 1px; }
+
+/* Controls */
+#controls {
+  padding: 6px 18px; background: white; border-bottom: 1px solid #e5e5e5;
+  display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap;
+}
+.ctrl-group { display: flex; align-items: center; gap: 7px; }
+.ctrl-label { font-size: 12px; color: #666; white-space: nowrap; }
+input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); cursor: pointer; }
+.ctrl-val { font-size: 12px; font-weight: 600; min-width: 34px; color: #333; }
+.sep { width: 1px; height: 18px; background: #e5e5e5; flex-shrink: 0; }
+.badge {
+  padding: 2px 11px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: #eef1ff; color: #4a6cf7; min-width: 88px; text-align: center;
+}
+
+/* Category tabs */
+#cat-tabs {
+  padding: 0 18px; background: white; border-bottom: 1px solid #e5e5e5;
+  display: flex; gap: 0; flex-shrink: 0; overflow-x: auto;
+}
+.cat-tab {
+  padding: 8px 15px; font-size: 12px; cursor: pointer; color: #aaa;
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color .15s, border-color .15s; font-weight: 500;
+}
+.cat-tab:hover { color: #555; }
+.cat-tab.active { border-bottom-color: currentColor; }
+
+/* main = 3-column layout */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* Col 1: cluster list  */
+#col-list {
+  width: 290px; flex-shrink: 0; border-right: 1px solid #e5e5e5;
+  background: white; display: flex; flex-direction: column; overflow: hidden;
+}
+#col-list-header {
+  padding: 8px 14px; font-size: 11px; color: #999; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0; background: white;
+}
+#cluster-list { overflow-y: auto; flex: 1; }
+
+.clist-item {
+  border-bottom: 1px solid #f2f2f2; cursor: pointer; transition: background .1s;
+}
+.clist-item:hover { background: #fafafa; }
+.clist-item.selected { background: var(--item-light, #eef1ff); }
+.clist-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px 5px;
+}
+.clist-name { font-size: 12px; font-weight: 600; color: #333; }
+.clist-count {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+  background: #f0f0f0; color: #888; flex-shrink: 0;
+}
+.clist-item.selected .clist-count {
+  background: var(--item-light, #eef1ff); color: var(--item-color, #4a6cf7);
+}
+.clist-queries { padding: 0 14px 8px; }
+.clist-q {
+  font-size: 11px; color: #777; line-height: 1.45; padding: 1.5px 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.clist-more { font-size: 10px; color: #bbb; margin-top: 2px; }
+
+/*  Col 2: hierarchy tree  */
+#col-tree {
+  width: 340px; flex-shrink: 0; border-right: 1px solid #e5e5e5;
+  background: #f9f9f9; display: flex; flex-direction: column; overflow: hidden;
+}
+#col-tree-header {
+  padding: 8px 14px; font-size: 11px; color: #999; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0; background: white;
+  display: flex; align-items: center; justify-content: space-between;
+}
+#col-tree-header span { font-weight: 400; color: #bbb; }
+#tree-view { overflow-y: auto; flex: 1; padding: 6px 0; }
+
+.tree-node { user-select: none; }
+.tree-row {
+  display: flex; align-items: center; gap: 0;
+  padding: 3px 8px 3px 0; cursor: pointer; border-radius: 4px;
+  transition: background .1s; position: relative;
+}
+.tree-row:hover { background: #f0f0f8; }
+.tree-row.selected { background: var(--cat-light, #eef1ff); }
+.tree-toggle {
+  width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #999; background: #ececec;
+  margin-right: 5px; transition: background .1s;
+}
+.tree-toggle:hover { background: #ddd; }
+.tree-toggle.leaf { background: none; color: #ccc; cursor: default; }
+.tree-size { font-size: 10px; color: #bbb; flex-shrink: 0; margin-left: 6px; }
+.local-badge {
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+  padding: 1px 6px; border-radius: 4px; margin-right: 6px;
+  font-family: monospace; min-width: 20px; text-align: center;
+}
+.tree-label { font-size: 11px; color: #555; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-label.inner { font-weight: 600; color: #333; }
+
+#tree-breadcrumb {
+  padding: 5px 10px; background: white; border-bottom: 1px solid #f0f0f0;
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  min-height: 28px; flex-shrink: 0;
+}
+#tree-breadcrumb:empty { display: none; }
+.bc-crumb {
+  font-size: 11px; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+  font-weight: 600; font-family: monospace; transition: background .1s;
+  white-space: nowrap;
+}
+.bc-crumb:hover { background: #f0f0f0; }
+.bc-crumb.bc-active { background: var(--cat-light,#eef1ff); color: var(--cat-color,#4a6cf7); cursor: default; }
+.bc-sep { font-size: 11px; color: #ccc; padding: 0 1px; }
+.tree-children.collapsed { display: none; }
+
+/*  Col 3: detail  */
+#col-detail {
+  flex: 1; background: white; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+}
+#col-detail-header {
+  padding: 8px 16px; font-size: 11px; color: #999; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+#detail-body { overflow-y: auto; flex: 1; padding: 14px 16px; }
+
+.detail-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.stats-row { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.stat-pill {
+  padding: 5px 12px; border-radius: 8px; background: #f4f5f7;
+  font-size: 12px; display: flex; flex-direction: column; gap: 1px;
+}
+.stat-pill .sp-val { font-weight: 700; font-size: 15px; }
+.stat-pill .sp-label { color: #999; font-size: 10px; }
+.section-title {
+  font-size: 10px; color: #aaa; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; margin: 14px 0 7px;
+}
+.repr-card {
+  display: flex; gap: 10px; padding: 9px 11px; border-radius: 7px;
+  background: #fafafa; border: 1px solid #f0f0f0; margin-bottom: 6px;
+  transition: border-color .12s;
+}
+.repr-card:hover { border-color: #ddd; }
+.repr-rank { font-size: 11px; font-weight: 800; opacity: .35; flex-shrink: 0; padding-top: 1px; min-width: 18px; }
+.repr-text { font-size: 12px; line-height: 1.55; color: #333; }
+.query-list { display: flex; flex-direction: column; gap: 3px; }
+.query-item {
+  font-size: 12px; color: #555; line-height: 1.5; padding: 5px 9px;
+  border-radius: 5px; background: #fafafa; border: 1px solid #f2f2f2;
+}
+.query-item:hover { background: #f5f5ff; }
+.more-label { font-size: 11px; color: #bbb; margin-top: 6px; text-align: center; }
+
+.topic-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.topic-row { }
+.topic-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+.topic-id { font-size: 11px; font-weight: 700; color: #555; }
+.topic-pct { font-size: 12px; font-weight: 700; color: #333; }
+.topic-bar-track { height: 7px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+.topic-bar-fill { height: 100%; border-radius: 4px; transition: width .35s ease; }
+.topic-words { font-size: 10px; color: #999; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>Demo explorer</h1>
+  </div>
+</div>
+
+<div id="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-label">Granularity</span>
+    <input type="range" id="cut-slider" min="0" max="39" step="1" value="20">
+    <span class="ctrl-val" id="cut-dist-val">—</span>
+  </div>
+  <div class="sep"></div>
+  <div class="badge" id="cluster-badge">— clusters</div>
+</div>
+
+<div id="cat-tabs"></div>
+
+<div id="main">
+  <div id="col-list">
+    <div id="col-list-header">Clusters</div>
+    <div id="cluster-list"></div>
+  </div>
+  <div id="col-tree">
+    <div id="col-tree-header">
+      Hierarchy <span id="tree-header-hint">· select a cluster</span>
+    </div>
+    <div id="tree-breadcrumb"></div>
+    <div id="tree-view">
+      <div style="padding:24px 16px;font-size:12px;color:#ccc;line-height:1.8">
+        Select a cluster on the left to explore its internal hierarchy.
+      </div>
+    </div>
+  </div>
+  <div id="col-detail">
+    <div id="col-detail-header">Cluster detail</div>
+    <div id="detail-body">
+      <div style="padding:24px 0;font-size:12px;color:#ccc;line-height:1.8">
+        Select a cluster or a node in the hierarchy to inspect its queries.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const PALETTE = [
+  "#4a6cf7","#e24b4a","#ef9f27","#9b59b6",
+  "#1d9e75","#d85a30","#e91e8c","#00838f","#5d6d7e","#2ecc71"
+];
+const PALETTE_LIGHT = [
+  "#eef1ff","#fcebeb","#fef3e2","#f3eaf9",
+  "#e1f5ee","#faece7","#fce4f0","#e0f4f6","#eaecee","#e8faf0"
+];
+const COLORS = {}, LIGHTS = {};
+
+let categories, queries, n_repr;
+let thetas = null, topic_keys = null;
+
+let trees_by_category = {};
+
+let currentCat      = null;
+let cutIdx          = 20;
+let selectedCluster = null;
+let expandedNodes   = new Set();
+
+const catData    = () => trees_by_category[currentCat];
+const currentCut = () => catData().cuts[cutIdx];
+const color      = () => COLORS[currentCat] || "#4a6cf7";
+const lcolor     = () => LIGHTS[currentCat] || "#eef1ff";
+
+function gatherLeafIndices(node) {
+  if (!node.children || !node.children.length)
+    return node.idx !== undefined ? [node.idx] : [];
+  return node.children.flatMap(gatherLeafIndices);
+}
+
+function updateBadge() {
+  const c = currentCut();
+  document.getElementById("cut-dist-val").textContent = c.distance.toFixed(3);
+  document.getElementById("cluster-badge").textContent = `${c.n_clusters} clusters`;
+  document.getElementById("cluster-badge").style.background = lcolor();
+  document.getElementById("cluster-badge").style.color = color();
+  document.documentElement.style.setProperty("--cat-color", color());
+  document.documentElement.style.setProperty("--cat-light", lcolor());
+}
+
+function buildClusters() {
+  const cd  = catData();
+  const cut = currentCut();
+  const groups = {};
+  cd.indices.forEach((globalIdx, localIdx) => {
+    const cid = cut.assignment[localIdx];
+    if (!groups[cid]) groups[cid] = [];
+    groups[cid].push(globalIdx);
+  });
+  return Object.values(groups).sort((a, b) => b.length - a.length);
+}
+
+function findClusterSubtree(node, clusterSet) {
+  const nodeIndices = new Set(gatherLeafIndices(node));
+  const intersection = [...nodeIndices].filter(i => clusterSet.has(i));
+  if (intersection.length === 0) return null;
+  if (!node.children || !node.children.length) return node;
+  for (const child of node.children) {
+    const childIndices = new Set(gatherLeafIndices(child));
+    const childInter   = [...childIndices].filter(i => clusterSet.has(i));
+    if (childInter.length === clusterSet.size) return findClusterSubtree(child, clusterSet);
+  }
+  return node;
+}
+
+function renderClusterList() {
+  const clusters = buildClusters();
+  const col = color(), lc = lcolor();
+  document.getElementById("col-list-header").textContent =
+    `${clusters.length} clusters · ${catData().n} queries`;
+  let html = "";
+  clusters.forEach((idxList, ci) => {
+    const isSelected = selectedCluster === ci;
+    const reprN = Math.min(5, idxList.length);
+    const rows  = idxList.slice(0, reprN).map((gi, rank) =>
+      `<div class="clist-q">${rank + 1}. ${queries[gi] || ""}</div>`).join("");
+    const more  = idxList.length > reprN
+      ? `<div class="clist-more">+${idxList.length - reprN} more queries</div>` : "";
+    const letter = clusterLetter(ci);
+    html += `<div class="clist-item${isSelected ? " selected" : ""}"
+      style="--item-color:${col};--item-light:${lc}"
+      onclick="selectCluster(${ci})">
+      <div class="clist-head">
+        <span class="clist-name">
+          <span style="font-family:monospace;font-weight:800;margin-right:6px;color:${col}">${letter}</span>
+          Cluster ${letter}
+        </span>
+        <span class="clist-count">${idxList.length} queries</span>
+      </div>
+      <div class="clist-queries">${rows}${more}</div>
+    </div>`;
+  });
+  document.getElementById("cluster-list").innerHTML = html;
+}
+
+function selectCluster(ci) {
+  selectedCluster = ci;
+  expandedNodes   = new Set();
+  const clusters    = buildClusters();
+  const idxList     = clusters[ci];
+  renderClusterList();
+  const clusterSet  = new Set(idxList);
+  const subtreeRoot = findClusterSubtree(catData().tree, clusterSet);
+  renderTreeView(subtreeRoot, ci, idxList.length);
+  showDetail(subtreeRoot, idxList, `Cluster ${clusterLetter(ci)}`);
+}
+
+function clusterLetter(ci) {
+  const L = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (ci < 26) return L[ci];
+  return L[Math.floor(ci / 26) - 1] + L[ci % 26];
+}
+
+let _breadcrumb = [];
+
+function renderBreadcrumb() {
+  const col = color(), lc = lcolor();
+  if (!_breadcrumb.length) { document.getElementById("tree-breadcrumb").innerHTML = ""; return; }
+  const parts = _breadcrumb.map((item, i) => {
+    const isLast = i === _breadcrumb.length - 1;
+    return (i > 0 ? `<span class="bc-sep">›</span>` : "") +
+      `<span class="bc-crumb ${isLast ? "bc-active" : "bc-root"}"
+        style="${isLast ? `background:${lc};color:${col}` : `color:${col}`}"
+        onclick="breadcrumbClick(${i})">${item.label}</span>`;
+  });
+  document.getElementById("tree-breadcrumb").innerHTML = parts.join("");
+}
+
+function breadcrumbClick(i) {
+  _breadcrumb = _breadcrumb.slice(0, i + 1);
+  const target = _breadcrumb[i];
+  renderBreadcrumb();
+  renderTreeFromNode(target.node, target.label, true);
+  showDetail(target.node, gatherLeafIndices(target.node), `Cluster ${target.label}`);
+}
+
+function renderTreeView(subtreeRoot, ci, totalCount) {
+  const rootLabel = clusterLetter(ci);
+  _breadcrumb = [{ nodeId: subtreeRoot.id, label: rootLabel, node: subtreeRoot }];
+  document.getElementById("tree-header-hint").textContent =
+    `· Cluster ${rootLabel} (${totalCount} queries)`;
+  renderBreadcrumb();
+  renderTreeFromNode(subtreeRoot, rootLabel, true);
+  window._currentSubtree = subtreeRoot;
+}
+
+function renderTreeFromNode(rootNode, rootLabel, isTopLevel) {
+  if (!rootNode) {
+    document.getElementById("tree-view").innerHTML =
+      `<div style="padding:16px;font-size:12px;color:#ccc">No hierarchy available.</div>`;
+    return;
+  }
+  const col = color(), lc = lcolor();
+  window._nodeMap = {};
+
+  function renderNode(node, localIndex, depth) {
+    const isLeaf   = !node.children || !node.children.length;
+    const nodeId   = node.id || `node_${depth}_${localIndex}`;
+    const indentPx = depth * 18 + 10;
+    const idxList  = gatherLeafIndices(node);
+    const size     = idxList.length;
+    window._nodeMap[nodeId] = { node, localIndex };
+
+    const toggleIcon  = isLeaf ? "·" : "▸";
+    const toggleClass = isLeaf ? "leaf" : "";
+    const badgeHtml   = depth === 0 ? "" :
+      `<span class="local-badge" style="background:${isLeaf ? lc : col};color:${isLeaf ? col : "white"}">${localIndex}</span>`;
+
+    let labelText = "";
+    if (isLeaf) {
+      const q = queries[node.idx] || node.name || "query";
+      labelText = q.length > 52 ? q.slice(0, 52) + "…" : q;
+    } else {
+      const reprIdx = node.repr?.[0] ?? idxList[0];
+      const sample  = reprIdx !== undefined ? (queries[reprIdx] || "").slice(0, 40) : "";
+      labelText     = sample ? sample + "…" : `${size} queries`;
+    }
+
+    const children = isLeaf ? [] : [...node.children]
+      .sort((a, b) => gatherLeafIndices(b).length - gatherLeafIndices(a).length);
+
+    const childrenHtml = children.map((c, i) => renderNode(c, i + 1, depth + 1)).join("");
+
+    return `
+      <div class="tree-node">
+        <div class="tree-row" style="padding-left:${indentPx}px"
+          data-node-id="${nodeId}"
+          onclick="handleTreeClick(event,'${nodeId}')">
+          <span class="tree-toggle ${toggleClass}">${toggleIcon}</span>
+          ${badgeHtml}
+          <span class="tree-label ${isLeaf ? "" : "inner"}">${labelText}</span>
+          <span class="tree-size">${isLeaf ? "" : size}</span>
+        </div>
+        <div class="tree-children collapsed" id="children_${nodeId}">
+          ${childrenHtml}
+        </div>
+      </div>`;
+  }
+
+  document.getElementById("tree-view").innerHTML = renderNode(rootNode, 0, 0);
+  const rootRow = document.querySelector("[data-node-id]");
+  if (rootRow) {
+    const rootId  = rootRow.dataset.nodeId;
+    const childEl = document.getElementById(`children_${rootId}`);
+    if (childEl) childEl.classList.remove("collapsed");
+    const toggle  = rootRow.querySelector(".tree-toggle");
+    if (toggle && toggle.textContent === "▸") toggle.textContent = "▾";
+  }
+}
+
+function handleTreeClick(event, nodeId) {
+  event.stopPropagation();
+  const entry = (window._nodeMap || {})[nodeId];
+  if (!entry) return;
+  const { node, localIndex } = entry;
+  const isLeaf = !node.children || !node.children.length;
+
+  if (isLeaf) {
+    document.querySelectorAll(".tree-row").forEach(r => r.classList.remove("selected"));
+    document.querySelector(`[data-node-id="${nodeId}"]`)?.classList.add("selected");
+    const q = queries[node.idx] || node.name || "Query";
+    showDetail(node, [node.idx], q.slice(0, 70));
+    return;
+  }
+
+  const parentLabel = _breadcrumb[_breadcrumb.length - 1]?.label || "";
+  const newLabel    = localIndex === 0 ? parentLabel : `${parentLabel}.${localIndex}`;
+  if (localIndex !== 0) {
+    _breadcrumb.push({ nodeId, label: newLabel, node });
+    renderBreadcrumb();
+  }
+  renderTreeFromNode(node, newLabel, false);
+  showDetail(node, gatherLeafIndices(node), `Cluster ${newLabel}`);
+}
+
+function topicBarHtml(idxList, col) {
+  if (!thetas || !topic_keys || !idxList.length) return '';
+  const k = topic_keys.length;
+  const mean = new Array(k).fill(0);
+  for (const i of idxList) {
+    const t = thetas[i];
+    for (let j = 0; j < k; j++) mean[j] += t[j];
+  }
+  for (let j = 0; j < k; j++) mean[j] /= idxList.length;
+  const ranked = mean.map((w, j) => ({ j, w }))
+    .sort((a, b) => b.w - a.w).filter(x => x.w > 0.01).slice(0, 8);
+  if (!ranked.length) return '';
+  const maxW = ranked[0].w;
+  let h = `<div class="section-title">Topic distribution</div><div class="topic-bars">`;
+  for (const { j, w } of ranked) {
+    const pct   = (w * 100).toFixed(1);
+    const barW  = (w / maxW * 100).toFixed(1);
+    const words = topic_keys[j].slice(0, 8).join(' · ');
+    h += `<div class="topic-row">
+      <div class="topic-header">
+        <span class="topic-id">Topic ${j}</span>
+        <span class="topic-pct">${pct}%</span>
+      </div>
+      <div class="topic-bar-track">
+        <div class="topic-bar-fill" style="width:${barW}%;background:${col}"></div>
+      </div>
+      <div class="topic-words">${words}</div>
+    </div>`;
+  }
+  return h + '</div>';
+}
+
+function showDetail(node, idxList, title) {
+  const col = color(), lc = lcolor();
+  const total    = idxList.length;
+  const reprIdxs = (node && node.repr) ? node.repr : idxList.slice(0, n_repr || 5);
+  let h = `<div class="detail-title">${title}</div>`;
+  h += `<div class="stats-row">
+    <div class="stat-pill" style="background:${lc}">
+      <span class="sp-val" style="color:${col}">${total}</span>
+      <span class="sp-label">queries</span>
+    </div>`;
+  if (node && node.dist && node.dist > 0)
+    h += `<div class="stat-pill">
+      <span class="sp-val">${node.dist.toFixed(3)}</span>
+      <span class="sp-label">merge dist</span>
+    </div>`;
+  h += `</div>`;
+  h += topicBarHtml(idxList, col);
+  if (reprIdxs.length) {
+    h += `<div class="section-title">Most representative</div>`;
+    reprIdxs.forEach((gi, rank) => {
+      h += `<div class="repr-card">
+        <span class="repr-rank" style="color:${col}">#${rank + 1}</span>
+        <span class="repr-text">${queries[gi] || ""}</span>
+      </div>`;
+    });
+  }
+  const others = idxList.filter(i => !reprIdxs.includes(i));
+  if (others.length) {
+    h += `<div class="section-title">All queries (${total} total)</div>`;
+    h += `<div class="query-list">`;
+    others.slice(0, 50).forEach(gi => {
+      h += `<div class="query-item">${queries[gi] || ""}</div>`;
+    });
+    h += `</div>`;
+    if (others.length > 50)
+      h += `<div class="more-label">… ${others.length - 50} more queries</div>`;
+  }
+  document.getElementById("detail-body").innerHTML = h;
+}
+
+let _rafId;
+document.getElementById("cut-slider").addEventListener("input", function() {
+  cutIdx          = +this.value;
+  selectedCluster = null;
+  expandedNodes   = new Set();
+  cancelAnimationFrame(_rafId);
+  _rafId = requestAnimationFrame(() => {
+    updateBadge();
+    renderClusterList();
+    document.getElementById("tree-view").innerHTML =
+      `<div style="padding:24px 16px;font-size:12px;color:#ccc;line-height:1.8">Select a cluster on the left to explore its internal hierarchy.</div>`;
+    document.getElementById("tree-header-hint").textContent = "· select a cluster";
+    document.getElementById("detail-body").innerHTML =
+      `<div style="padding:24px 0;font-size:12px;color:#ccc">Select a cluster or node to inspect its queries.</div>`;
+  });
+});
+
+function selectCategory(cat) {
+  currentCat      = cat;
+  selectedCluster = null;
+  expandedNodes   = new Set();
+  document.querySelectorAll(".cat-tab").forEach(t =>
+    t.classList.toggle("active", t.dataset.cat === cat));
+  updateBadge();
+  renderClusterList();
+  document.getElementById("tree-view").innerHTML =
+    `<div style="padding:24px 16px;font-size:12px;color:#ccc;line-height:1.8">Select a cluster on the left to explore its internal hierarchy.</div>`;
+  document.getElementById("tree-header-hint").textContent = "· select a cluster";
+  document.getElementById("detail-body").innerHTML =
+    `<div style="padding:24px 0;font-size:12px;color:#ccc">Select a cluster or node to inspect its queries.</div>`;
+}
+
+async function init() {
+  document.getElementById("cluster-badge").textContent = "Loading…";
+  const DATA = await fetch("viz_v5_data.json").then(r => r.json());
+
+  ({ categories, queries, n_repr, thetas, topic_keys } = DATA);
+
+  // Reconstruct nested tree from flat node list
+  trees_by_category = {};
+  for (const [cat, cd] of Object.entries(DATA.trees_by_category)) {
+    const map = Object.fromEntries(cd.nodes.map(n => [n.id, { ...n, children: [] }]));
+    cd.nodes.forEach(n => (n.children_ids || []).forEach(cid => {
+      if (map[cid]) map[n.id].children.push(map[cid]);
+    }));
+    trees_by_category[cat] = { ...cd, tree: map[cd.root_id] };
+  }
+
+  categories.forEach((c, i) => {
+    COLORS[c] = PALETTE[i % PALETTE.length];
+    LIGHTS[c] = PALETTE_LIGHT[i % PALETTE_LIGHT.length];
+  });
+  categories.forEach(cat => {
+    const cd = trees_by_category[cat];
+    if (cd) cd._localMap = new Map(cd.indices.map((gi, li) => [gi, li]));
+  });
+
+  const tabsEl = document.getElementById("cat-tabs");
+  categories.forEach(cat => {
+    const t = document.createElement("div");
+    t.className   = "cat-tab";
+    t.dataset.cat = cat;
+    t.textContent = cat;
+    t.style.color = COLORS[cat];
+    t.onclick     = () => selectCategory(cat);
+    tabsEl.appendChild(t);
+  });
+
+  selectCategory(categories[0]);
+}
+
+init();
+</script>
+</body>
+</html>
