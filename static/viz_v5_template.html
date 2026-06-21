@@ -17,7 +17,32 @@ body {
   display: flex; align-items: center; gap: 16px; flex-shrink: 0;
 }
 #header h1 { font-size: 14px; font-weight: 600; }
-#header-sub { font-size: 11px; color: #aaa; margin-top: 1px; }
+
+/* View switcher */
+#view-switch {
+  margin-left: auto;
+  display: flex;
+  background: #f0f0f0;
+  border-radius: 7px;
+  padding: 2px;
+  gap: 2px;
+}
+.vsw-btn {
+  padding: 4px 14px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 5px;
+  background: transparent;
+  color: #888;
+  transition: background .15s, color .15s;
+}
+.vsw-btn.active {
+  background: white;
+  color: var(--cat-color, #4a6cf7);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
 
 /* Controls */
 #controls {
@@ -47,10 +72,10 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 .cat-tab:hover { color: #555; }
 .cat-tab.active { border-bottom-color: currentColor; }
 
-/* main = 3-column layout */
+/* Clusters view */
 #main { display: flex; flex: 1; overflow: hidden; }
 
-/* Col 1: cluster list  */
+/* Col 1: cluster list */
 #col-list {
   width: 290px; flex-shrink: 0; border-right: 1px solid #e5e5e5;
   background: white; display: flex; flex-direction: column; overflow: hidden;
@@ -86,7 +111,7 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 }
 .clist-more { font-size: 10px; color: #bbb; margin-top: 2px; }
 
-/*  Col 2: hierarchy tree  */
+/* Col 2: hierarchy tree */
 #col-tree {
   width: 340px; flex-shrink: 0; border-right: 1px solid #e5e5e5;
   background: #f9f9f9; display: flex; flex-direction: column; overflow: hidden;
@@ -102,7 +127,7 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 
 .tree-node { user-select: none; }
 .tree-row {
-  display: flex; align-items: center; gap: 0;
+  display: flex; align-items: center;
   padding: 3px 8px 3px 0; cursor: pointer; border-radius: 4px;
   transition: background .1s; position: relative;
 }
@@ -142,7 +167,7 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 .bc-sep { font-size: 11px; color: #ccc; padding: 0 1px; }
 .tree-children.collapsed { display: none; }
 
-/*  Col 3: detail  */
+/* Col 3: detail */
 #col-detail {
   flex: 1; background: white; display: flex; flex-direction: column;
   overflow: hidden; min-width: 0;
@@ -183,13 +208,52 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 .more-label { font-size: 11px; color: #bbb; margin-top: 6px; text-align: center; }
 
 .topic-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
-.topic-row { }
-.topic-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
-.topic-id { font-size: 11px; font-weight: 700; color: #555; }
-.topic-pct { font-size: 12px; font-weight: 700; color: #333; }
+.topic-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; gap: 8px; }
+.topic-id {
+  font-size: 11px; font-weight: 700; color: #444;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.topic-pct { font-size: 12px; font-weight: 700; color: #333; flex-shrink: 0; }
 .topic-bar-track { height: 7px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
 .topic-bar-fill { height: 100%; border-radius: 4px; transition: width .35s ease; }
 .topic-words { font-size: 10px; color: #999; line-height: 1.5; }
+
+/* Topics view */
+#view-topics { flex: 1; overflow-y: auto; display: none; }
+#topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  align-content: start;
+}
+.topic-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.topic-card:hover {
+  border-color: var(--cat-color, #4a6cf7);
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
+}
+.topic-card-num {
+  font-size: 10px; font-weight: 700; color: #ccc;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.topic-card-label {
+  font-size: 13px; font-weight: 700; line-height: 1.35;
+  color: var(--cat-color, #4a6cf7);
+}
+.topic-card-words { display: flex; flex-wrap: wrap; gap: 4px; }
+.topic-word {
+  display: inline-block; background: #f4f5f7; border-radius: 4px;
+  padding: 2px 7px; font-size: 11px; color: #555;
+}
 
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -199,8 +263,10 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 <body>
 
 <div id="header">
-  <div>
-    <h1>Demo explorer</h1>
+  <div><h1>Demo explorer</h1></div>
+  <div id="view-switch">
+    <button class="vsw-btn active" data-view="clusters" onclick="switchView('clusters')">Clusters</button>
+    <button class="vsw-btn" data-view="topics" onclick="switchView('topics')">Topics</button>
   </div>
 </div>
 
@@ -208,14 +274,15 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   <div class="ctrl-group">
     <span class="ctrl-label">Granularity</span>
     <input type="range" id="cut-slider" min="0" max="39" step="1" value="20">
-    <span class="ctrl-val" id="cut-dist-val">—</span>
+    <span class="ctrl-val" id="cut-dist-val">&#8212;</span>
   </div>
   <div class="sep"></div>
-  <div class="badge" id="cluster-badge">— clusters</div>
+  <div class="badge" id="cluster-badge">&#8212; clusters</div>
 </div>
 
 <div id="cat-tabs"></div>
 
+<!-- Clusters view (3-column) -->
 <div id="main">
   <div id="col-list">
     <div id="col-list-header">Clusters</div>
@@ -223,7 +290,7 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   </div>
   <div id="col-tree">
     <div id="col-tree-header">
-      Hierarchy <span id="tree-header-hint">· select a cluster</span>
+      Hierarchy <span id="tree-header-hint">&#183; select a cluster</span>
     </div>
     <div id="tree-breadcrumb"></div>
     <div id="tree-view">
@@ -242,7 +309,11 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<!-- Topics view (grid of cards) -->
+<div id="view-topics">
+  <div id="topic-grid"></div>
+</div>
+
 <script>
 const PALETTE = [
   "#4a6cf7","#e24b4a","#ef9f27","#9b59b6",
@@ -254,12 +325,13 @@ const PALETTE_LIGHT = [
 ];
 const COLORS = {}, LIGHTS = {};
 
-let categories, queries, n_repr;
-let thetas = null, topic_keys = null;
-
+let categories, n_repr;
+let queries = [], thetas = null, topic_keys = null, topic_labels = null;
+let data_by_category = {};
 let trees_by_category = {};
 
 let currentCat      = null;
+let currentView     = "clusters";
 let cutIdx          = 20;
 let selectedCluster = null;
 let expandedNodes   = new Set();
@@ -275,6 +347,42 @@ function gatherLeafIndices(node) {
   return node.children.flatMap(gatherLeafIndices);
 }
 
+// ── View switching ─────────────────────────────────────────────────────────────
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll(".vsw-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.view === view));
+  document.getElementById("main").style.display        = view === "clusters" ? "flex"  : "none";
+  document.getElementById("view-topics").style.display = view === "topics"   ? "block" : "none";
+  document.getElementById("controls").style.display    = view === "clusters" ? "flex"  : "none";
+  if (view === "topics") renderTopicsView();
+}
+
+// ── Topics view ────────────────────────────────────────────────────────────────
+
+function renderTopicsView() {
+  const col = color();
+  if (!topic_keys || !topic_keys.length) {
+    document.getElementById("topic-grid").innerHTML =
+      '<div style="padding:24px;font-size:12px;color:#ccc">No topics available for this category.</div>';
+    return;
+  }
+  let html = "";
+  topic_keys.forEach((words, j) => {
+    const label = topic_labels ? topic_labels[j] : words.slice(0, 3).join(" · ");
+    const chips = words.map(w => `<span class="topic-word">${w}</span>`).join("");
+    html += `<div class="topic-card">
+      <div class="topic-card-num">Topic ${j + 1}</div>
+      <div class="topic-card-label" style="color:${col}">${label}</div>
+      <div class="topic-card-words">${chips}</div>
+    </div>`;
+  });
+  document.getElementById("topic-grid").innerHTML = html;
+}
+
+// ── Badge & clusters ───────────────────────────────────────────────────────────
+
 function updateBadge() {
   const c = currentCut();
   document.getElementById("cut-dist-val").textContent = c.distance.toFixed(3);
@@ -289,10 +397,10 @@ function buildClusters() {
   const cd  = catData();
   const cut = currentCut();
   const groups = {};
-  cd.indices.forEach((globalIdx, localIdx) => {
-    const cid = cut.assignment[localIdx];
+  cd.indices.forEach((localIdx, i) => {
+    const cid = cut.assignment[i];
     if (!groups[cid]) groups[cid] = [];
-    groups[cid].push(globalIdx);
+    groups[cid].push(localIdx);
   });
   return Object.values(groups).sort((a, b) => b.length - a.length);
 }
@@ -357,6 +465,8 @@ function clusterLetter(ci) {
   if (ci < 26) return L[ci];
   return L[Math.floor(ci / 26) - 1] + L[ci % 26];
 }
+
+// ── Tree ───────────────────────────────────────────────────────────────────────
 
 let _breadcrumb = [];
 
@@ -425,7 +535,6 @@ function renderTreeFromNode(rootNode, rootLabel, isTopLevel) {
 
     const children = isLeaf ? [] : [...node.children]
       .sort((a, b) => gatherLeafIndices(b).length - gatherLeafIndices(a).length);
-
     const childrenHtml = children.map((c, i) => renderNode(c, i + 1, depth + 1)).join("");
 
     return `
@@ -480,12 +589,15 @@ function handleTreeClick(event, nodeId) {
   showDetail(node, gatherLeafIndices(node), `Cluster ${newLabel}`);
 }
 
+// ── Detail panel ───────────────────────────────────────────────────────────────
+
 function topicBarHtml(idxList, col) {
   if (!thetas || !topic_keys || !idxList.length) return '';
   const k = topic_keys.length;
   const mean = new Array(k).fill(0);
   for (const i of idxList) {
     const t = thetas[i];
+    if (!t) continue;
     for (let j = 0; j < k; j++) mean[j] += t[j];
   }
   for (let j = 0; j < k; j++) mean[j] /= idxList.length;
@@ -497,16 +609,17 @@ function topicBarHtml(idxList, col) {
   for (const { j, w } of ranked) {
     const pct   = (w * 100).toFixed(1);
     const barW  = (w / maxW * 100).toFixed(1);
-    const words = topic_keys[j].slice(0, 8).join(' · ');
+    const label = topic_labels ? topic_labels[j] : `Topic ${j + 1}`;
+    const extra = topic_keys[j].slice(3, 11).join(" · ");
     h += `<div class="topic-row">
       <div class="topic-header">
-        <span class="topic-id">Topic ${j}</span>
+        <span class="topic-id" title="Topic ${j + 1}: ${topic_keys[j].join(', ')}">${label}</span>
         <span class="topic-pct">${pct}%</span>
       </div>
       <div class="topic-bar-track">
         <div class="topic-bar-fill" style="width:${barW}%;background:${col}"></div>
       </div>
-      <div class="topic-words">${words}</div>
+      ${extra ? `<div class="topic-words">${extra}</div>` : ""}
     </div>`;
   }
   return h + '</div>';
@@ -552,6 +665,8 @@ function showDetail(node, idxList, title) {
   document.getElementById("detail-body").innerHTML = h;
 }
 
+// ── Slider ─────────────────────────────────────────────────────────────────────
+
 let _rafId;
 document.getElementById("cut-slider").addEventListener("input", function() {
   cutIdx          = +this.value;
@@ -569,28 +684,46 @@ document.getElementById("cut-slider").addEventListener("input", function() {
   });
 });
 
+// ── Category selection ─────────────────────────────────────────────────────────
+
 function selectCategory(cat) {
   currentCat      = cat;
   selectedCluster = null;
   expandedNodes   = new Set();
+
+  const info   = data_by_category[cat] || {};
+  queries      = info.queries      || [];
+  thetas       = info.thetas       || null;
+  topic_keys   = info.topic_keys   || null;
+  topic_labels = info.topic_labels || null;
+
   document.querySelectorAll(".cat-tab").forEach(t =>
     t.classList.toggle("active", t.dataset.cat === cat));
-  updateBadge();
-  renderClusterList();
-  document.getElementById("tree-view").innerHTML =
-    `<div style="padding:24px 16px;font-size:12px;color:#ccc;line-height:1.8">Select a cluster on the left to explore its internal hierarchy.</div>`;
-  document.getElementById("tree-header-hint").textContent = "· select a cluster";
-  document.getElementById("detail-body").innerHTML =
-    `<div style="padding:24px 0;font-size:12px;color:#ccc">Select a cluster or node to inspect its queries.</div>`;
+  document.documentElement.style.setProperty("--cat-color", color());
+  document.documentElement.style.setProperty("--cat-light", lcolor());
+
+  if (currentView === "clusters") {
+    updateBadge();
+    renderClusterList();
+    document.getElementById("tree-view").innerHTML =
+      `<div style="padding:24px 16px;font-size:12px;color:#ccc;line-height:1.8">Select a cluster on the left to explore its internal hierarchy.</div>`;
+    document.getElementById("tree-header-hint").textContent = "· select a cluster";
+    document.getElementById("detail-body").innerHTML =
+      `<div style="padding:24px 0;font-size:12px;color:#ccc">Select a cluster or node to inspect its queries.</div>`;
+  } else {
+    renderTopicsView();
+  }
 }
+
+// ── Init ───────────────────────────────────────────────────────────────────────
 
 async function init() {
   document.getElementById("cluster-badge").textContent = "Loading…";
   const DATA = await fetch("viz_v5_data.json").then(r => r.json());
 
-  ({ categories, queries, n_repr, thetas, topic_keys } = DATA);
+  ({ categories, n_repr } = DATA);
+  data_by_category = DATA.data_by_category;
 
-  // Reconstruct nested tree from flat node list
   trees_by_category = {};
   for (const [cat, cd] of Object.entries(DATA.trees_by_category)) {
     const map = Object.fromEntries(cd.nodes.map(n => [n.id, { ...n, children: [] }]));
@@ -603,10 +736,6 @@ async function init() {
   categories.forEach((c, i) => {
     COLORS[c] = PALETTE[i % PALETTE.length];
     LIGHTS[c] = PALETTE_LIGHT[i % PALETTE_LIGHT.length];
-  });
-  categories.forEach(cat => {
-    const cd = trees_by_category[cat];
-    if (cd) cd._localMap = new Map(cd.indices.map((gi, li) => [gi, li]));
   });
 
   const tabsEl = document.getElementById("cat-tabs");
