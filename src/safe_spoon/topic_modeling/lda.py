@@ -129,7 +129,7 @@ class LDATopicModel:
         Returns
         -------
         tm:
-            The populated :class:`TMmodel` instance.
+            The populated :class:TMmodel instance.
         elapsed:
             Wall-clock seconds for the full train call.
         """
@@ -224,10 +224,19 @@ class LDATopicModel:
 
         self._thetas = X_all  # dense, for downstream clustering
 
-        # 7. Create TMmodel (uses sparsified thetas)
+        # 7. Create TMmodel (uses sparsified thetas; also sorts topics internally)
         self._create_tm_model(X_all, betas, self._vocab)
 
-        # 8. Persist
+        # 8. Re-derive topic_keys from TMmodel sorted betas so topic_keys,
+        # topic_labels, alphas and tpc_coords all share the same sorted order.
+        betas_sorted = np.load(str(self.model_path / "TMmodel" / "betas.npy"))
+        vocab_sorted = (self.model_path / "TMmodel" / "vocab.txt").read_text(encoding="utf-8").strip().split("\n")
+        top_idx = np.argsort(betas_sorted, axis=1)[:, ::-1][:, :self.topn]
+        self._topic_keys = [[vocab_sorted[i] for i in row] for row in top_idx]
+        # Also update thetas to sorted column order
+        self._thetas = np.array(sparse.load_npz(str(self.model_path / "TMmodel" / "thetas.npz")).todense())
+
+        # 9. Persist
         self.save()
 
         elapsed = time.time() - t_start
@@ -330,6 +339,24 @@ class LDATopicModel:
         bin_path = model_path / "model.bin"
         obj._logger.info(f"Loading Tomotopy model from {bin_path}")
         obj._lda_model = tp.LDAModel.load(str(bin_path))
+
+        # Restore thetas and topic_keys from TMmodel artifacts so they use
+        # the same sorted topic ordering that TMmodel._sort_topics() applied.
+        thetas_path = model_path / "TMmodel" / "thetas.npz"
+        betas_path  = model_path / "TMmodel" / "betas.npy"
+        vocab_path  = model_path / "TMmodel" / "vocab.txt"
+
+        if thetas_path.is_file():
+            obj._thetas = np.array(sparse.load_npz(str(thetas_path)).todense())
+            obj._logger.info(f"Thetas restored from disk: {obj._thetas.shape}")
+
+        if betas_path.is_file() and vocab_path.is_file():
+            betas = np.load(str(betas_path))
+            vocab = vocab_path.read_text(encoding="utf-8").strip().split("\n")
+            top_idx = np.argsort(betas, axis=1)[:, ::-1][:, :obj.topn]
+            obj._topic_keys = [[vocab[i] for i in row] for row in top_idx]
+            obj._logger.info(f"Topic keys restored: {len(obj._topic_keys)} topics")
+
         obj._logger.info("Model loaded successfully.")
         return obj
 
@@ -338,7 +365,7 @@ class LDATopicModel:
 
     @property
     def tm(self) -> TMmodel:
-        """Lazily load and return the :class:`TMmodel` from disk."""
+        """Lazily load and return the :class:TMmodel from disk."""
         if self._tm is None:
             tm_folder = self.model_path / "TMmodel"
             if not tm_folder.is_dir():

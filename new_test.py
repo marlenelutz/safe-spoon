@@ -4,6 +4,9 @@ import time
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+from sklearn.decomposition import PCA
+
 from dotenv import load_dotenv
 from scipy.cluster.hierarchy import fcluster, linkage, to_tree
 from scipy.spatial.distance import squareform
@@ -31,6 +34,8 @@ OUTPUT_FILE = "data/output/viz_v5_final.html"
 OUTPUT_JSON = "data/output/viz_v5_data.json"
 
 CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
+
+RETRAIN = False
 
 LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 
@@ -68,28 +73,34 @@ if __name__ == "__main__":
             log.warning("  Skipping '%s' — fewer than 2 queries", cat)
             continue
 
-        # train LDA
-        log.info("  [%s] Training LDA (%d topics, %d iters)…", cat, N_TOPICS, LDA_ITERS)
-        lda = LDATopicModel(
-            f"./data/models/{cat.replace(' ', '_')}",
-            num_topics=N_TOPICS,
-            num_iters=LDA_ITERS,
-            alpha=0.1,
-            eta=0.01,
-            preprocessor=preprocessor,
-            do_labeller=True,          
-            do_summarizer=False,        
-            llm_provider="openai",      
-            llm_model_type="gpt-5-nano",    
-            #llm_server="http://kumo.tsc.uc3m.es:11434",           
-            llm_api_key=LLM_API_KEY,
-            
-        )
-        tm, elapsed = lda.train([{"id": i, "text": t} for i, t in enumerate(cat_queries)])
-        log.info("  [%s] LDA done in %.1f min", cat, elapsed / 60)
+        model_dir = f"./data/models/{cat.replace(' ', '_')}"
+
+        if RETRAIN or not Path(model_dir).exists():
+            log.info("  [%s] Training LDA (%d topics, %d iters)…", cat, N_TOPICS, LDA_ITERS)
+            lda = LDATopicModel(
+                model_dir,
+                num_topics=N_TOPICS,
+                num_iters=LDA_ITERS,
+                alpha=0.1,
+                eta=0.01,
+                preprocessor=preprocessor,
+                do_labeller=True,
+                do_summarizer=False,
+                llm_provider="openai",
+                llm_model_type="gpt-5-nano",
+                #llm_server="http://kumo.tsc.uc3m.es:11434",
+                llm_api_key=LLM_API_KEY,
+            )
+            tm, elapsed = lda.train([{"id": i, "text": t} for i, t in enumerate(cat_queries)])
+            log.info("  [%s] LDA done in %.1f min", cat, elapsed / 60)
+        else:
+            log.info("  [%s] Loading existing model from %s", cat, model_dir)
+            lda = LDATopicModel.load(model_dir)
+            tm = lda.tm
 
         X_cat = lda.get_thetas()
         topic_keys = lda.get_topic_keys()
+        tm.load_tpc_labels()
         llm_labels = getattr(tm, "_tpc_labels", None)
         if llm_labels and not all(l.startswith("Topic ") for l in llm_labels):
             topic_labels = llm_labels
@@ -133,11 +144,28 @@ if __name__ == "__main__":
         flat_nodes, root_id = flatten_tree(tree)
         log.info("  [%s] Tree built · %d nodes", cat, len(flat_nodes))
 
+        tm.load_tpc_coords()
+        tpc_coords = [list(c) for c in (tm._coords or [])]
+        alphas = tm.get_alphas().tolist()
+
+        # Fallback: if pyLDAvis coords unavailable, use PCA on betas
+        if not tpc_coords:
+            log.info("  [%s] tpc_coords not available — computing PCA fallback from betas", cat)
+            betas_path = Path(model_dir) / "TMmodel" / "betas.npy"
+            betas_mat = np.load(str(betas_path))
+            if betas_mat.shape[0] >= 2:
+                coords_arr = PCA(n_components=2, random_state=42).fit_transform(betas_mat)
+                tpc_coords = [[round(float(x), 4), round(float(y), 4)] for x, y in coords_arr]
+            else:
+                tpc_coords = [[0.0, 0.0]] * betas_mat.shape[0]
+
         data_by_category[cat] = {
             "queries": cat_queries,
             "topic_keys": topic_keys,
             "topic_labels": topic_labels,
             "thetas": [[round(float(v), 4) for v in row] for row in X_cat],
+            "alphas": [round(float(a), 6) for a in alphas],
+            "tpc_coords": [[round(c, 4) for c in xy] for xy in tpc_coords],
             "n": n,
         }
         trees_by_category[cat] = {

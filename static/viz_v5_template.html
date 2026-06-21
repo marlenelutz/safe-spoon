@@ -218,13 +218,14 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
 .topic-bar-fill { height: 100%; border-radius: 4px; transition: width .35s ease; }
 .topic-words { font-size: 10px; color: #999; line-height: 1.5; }
 
-/* Topics view */
-#view-topics { flex: 1; overflow-y: auto; display: none; }
+/* Topics view — 2-column layout */
+#view-topics { flex: 1; overflow: hidden; display: none; }
+#topics-layout { display: flex; height: 100%; }
+#topic-grid-wrap { flex: 0 0 60%; overflow-y: auto; padding: 16px; border-right: 1px solid #e5e5e5; }
 #topic-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
-  padding: 16px;
   align-content: start;
 }
 .topic-card {
@@ -235,11 +236,16 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   display: flex;
   flex-direction: column;
   gap: 8px;
+  cursor: pointer;
   transition: border-color .15s, box-shadow .15s;
 }
 .topic-card:hover {
   border-color: var(--cat-color, #4a6cf7);
   box-shadow: 0 2px 10px rgba(0,0,0,.07);
+}
+.topic-card.selected {
+  border-color: var(--cat-color, #4a6cf7);
+  box-shadow: 0 0 0 2px var(--cat-color, #4a6cf7);
 }
 .topic-card-num {
   font-size: 10px; font-weight: 700; color: #ccc;
@@ -254,6 +260,33 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   display: inline-block; background: #f4f5f7; border-radius: 4px;
   padding: 2px 7px; font-size: 11px; color: #555;
 }
+/* Topic detail panel */
+#topic-detail {
+  flex: 1; background: white; display: flex; flex-direction: column; overflow: hidden;
+}
+#topic-detail-header {
+  padding: 8px 16px; font-size: 11px; color: #999; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+#topic-detail-body { overflow-y: auto; flex: 1; padding: 14px 16px; }
+
+/* Map view */
+#view-map { flex: 1; overflow: hidden; display: none; }
+#map-layout { display: flex; height: 100%; }
+#map-svg-wrap { flex: 0 0 65%; overflow: hidden; position: relative; }
+#map-svg { width: 100%; height: 100%; }
+#map-detail {
+  flex: 1; background: white; display: flex; flex-direction: column; overflow: hidden;
+  border-left: 1px solid #e5e5e5;
+}
+#map-detail-header {
+  padding: 8px 16px; font-size: 11px; color: #999; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+#map-detail-body { overflow-y: auto; flex: 1; padding: 14px 16px; }
+.bubble-label { pointer-events: none; font-family: inherit; }
 
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -267,6 +300,7 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   <div id="view-switch">
     <button class="vsw-btn active" data-view="clusters" onclick="switchView('clusters')">Clusters</button>
     <button class="vsw-btn" data-view="topics" onclick="switchView('topics')">Topics</button>
+    <button class="vsw-btn" data-view="map" onclick="switchView('map')">Map</button>
   </div>
 </div>
 
@@ -309,9 +343,38 @@ input[type=range] { width: 140px; accent-color: var(--cat-color, #4a6cf7); curso
   </div>
 </div>
 
-<!-- Topics view (grid of cards) -->
+<!-- Topics view (2-column: grid + detail) -->
 <div id="view-topics">
-  <div id="topic-grid"></div>
+  <div id="topics-layout">
+    <div id="topic-grid-wrap">
+      <div id="topic-grid"></div>
+    </div>
+    <div id="topic-detail">
+      <div id="topic-detail-header">Topic detail</div>
+      <div id="topic-detail-body">
+        <div style="padding:24px 0;font-size:12px;color:#ccc;line-height:1.8">
+          Select a topic to see its most representative queries.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Map view (bubble chart + detail) -->
+<div id="view-map">
+  <div id="map-layout">
+    <div id="map-svg-wrap">
+      <svg id="map-svg"></svg>
+    </div>
+    <div id="map-detail">
+      <div id="map-detail-header">Topic detail</div>
+      <div id="map-detail-body">
+        <div style="padding:24px 0;font-size:12px;color:#ccc;line-height:1.8">
+          Select a topic bubble to see its most representative queries.
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -334,6 +397,7 @@ let currentCat      = null;
 let currentView     = "clusters";
 let cutIdx          = 20;
 let selectedCluster = null;
+let selectedTopic   = null;
 let expandedNodes   = new Set();
 
 const catData    = () => trees_by_category[currentCat];
@@ -355,8 +419,10 @@ function switchView(view) {
     b.classList.toggle("active", b.dataset.view === view));
   document.getElementById("main").style.display        = view === "clusters" ? "flex"  : "none";
   document.getElementById("view-topics").style.display = view === "topics"   ? "block" : "none";
+  document.getElementById("view-map").style.display    = view === "map"      ? "block" : "none";
   document.getElementById("controls").style.display    = view === "clusters" ? "flex"  : "none";
   if (view === "topics") renderTopicsView();
+  if (view === "map")    renderMapView();
 }
 
 // ── Topics view ────────────────────────────────────────────────────────────────
@@ -372,13 +438,159 @@ function renderTopicsView() {
   topic_keys.forEach((words, j) => {
     const label = topic_labels ? topic_labels[j] : words.slice(0, 3).join(" · ");
     const chips = words.map(w => `<span class="topic-word">${w}</span>`).join("");
-    html += `<div class="topic-card">
+    html += `<div class="topic-card" onclick="showTopicDetail(${j})">
       <div class="topic-card-num">Topic ${j + 1}</div>
       <div class="topic-card-label" style="color:${col}">${label}</div>
       <div class="topic-card-words">${chips}</div>
     </div>`;
   });
   document.getElementById("topic-grid").innerHTML = html;
+}
+
+function topDocsForTopic(j, n = 10) {
+  if (!thetas) return [];
+  return thetas
+    .map((row, i) => ({ i, w: row[j] }))
+    .filter(x => x.w > 0)
+    .sort((a, b) => b.w - a.w)
+    .slice(0, n)
+    .map(x => x.i);
+}
+
+function showTopicDetail(j) {
+  selectedTopic = j;
+  document.querySelectorAll(".topic-card").forEach((c, i) =>
+    c.classList.toggle("selected", i === j));
+  const col   = color();
+  const label = topic_labels ? topic_labels[j] : `Topic ${j + 1}`;
+  const words = topic_keys ? topic_keys[j] : [];
+  const chips = words.map(w => `<span class="topic-word">${w}</span>`).join("");
+  const topDocs = topDocsForTopic(j, 10);
+  let h = `<div class="detail-title">${label} <span style="font-weight:400;color:#999;font-size:12px">· Topic ${j + 1}</span></div>`;
+  h += `<div class="section-title">Top words</div>`;
+  h += `<div class="topic-card-words" style="margin-bottom:12px">${chips}</div>`;
+  h += `<div class="section-title">Most representative queries</div>`;
+  if (topDocs.length === 0) {
+    h += `<div style="font-size:12px;color:#ccc;padding:8px 0">No queries found.</div>`;
+  } else {
+    topDocs.forEach((gi, rank) => {
+      h += `<div class="repr-card">
+        <span class="repr-rank" style="color:${col}">#${rank + 1}</span>
+        <span class="repr-text">${queries[gi] || ""}</span>
+      </div>`;
+    });
+  }
+  document.getElementById("topic-detail-body").innerHTML = h;
+}
+
+// ── Map view (bubble chart) ────────────────────────────────────────────────────
+
+function renderMapView() {
+  const info = data_by_category[currentCat] || {};
+  const coords  = info.tpc_coords  || [];
+  const alphas  = info.alphas      || [];
+  const labels  = info.topic_labels || [];
+  const keys    = info.topic_keys   || [];
+  const col     = color();
+
+  if (!coords.length) {
+    document.getElementById("map-svg").innerHTML =
+      `<text x="50%" y="50%" text-anchor="middle" fill="#ccc" font-size="13">No map data available.</text>`;
+    return;
+  }
+
+  const svg  = document.getElementById("map-svg");
+  const wrap = document.getElementById("map-svg-wrap");
+  const W    = wrap.clientWidth  || 600;
+  const H    = wrap.clientHeight || 500;
+
+  // Scale coordinates to SVG space with padding
+  const xs   = coords.map(c => c[0]);
+  const ys   = coords.map(c => c[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+
+  // Radius proportional to sqrt(alpha) — area ∝ alpha
+  const maxAlpha = Math.max(...alphas);
+  const MAX_R = Math.min(W, H) * 0.12;
+  const MIN_R = MAX_R * 0.25;
+  const pad   = MAX_R + 4;
+
+  function cx(x) { return pad + (x - minX) / rangeX * (W - 2 * pad); }
+  function cy(y) { return pad + (1 - (y - minY) / rangeY) * (H - 2 * pad); } // flip Y
+
+  function r(alpha) {
+    return MIN_R + (Math.sqrt(alpha / maxAlpha)) * (MAX_R - MIN_R);
+  }
+
+  // Parse color for transparent fill
+  function hexToRgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  }
+  const fillCol   = hexToRgba(col, 0.18);
+  const strokeCol = hexToRgba(col, 0.7);
+
+  let svgHTML = "";
+  coords.forEach((xy, j) => {
+    const bx = cx(xy[0]);
+    const by = cy(xy[1]);
+    const br = r(alphas[j] || 0);
+    const label = labels[j] || keys[j]?.slice(0, 3).join(" · ") || `Topic ${j + 1}`;
+    const short = label.length > 18 ? label.slice(0, 16) + "…" : label;
+    const pct   = ((alphas[j] || 0) * 100).toFixed(1);
+    // Split long labels into 2 lines if wider than circle
+    const charsPerLine = Math.max(6, Math.floor(br * 1.8 / 6.5));
+    const line1 = short.slice(0, charsPerLine);
+    const line2 = short.length > charsPerLine ? short.slice(charsPerLine) : null;
+
+    svgHTML += `<g class="bubble-g" style="cursor:pointer" onclick="showMapDetail(${j})">
+      <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${br.toFixed(1)}"
+        fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5"
+        id="bubble-${j}">
+        <title>${label} (${pct}%)</title>
+      </circle>
+      <text class="bubble-label" x="${bx.toFixed(1)}" y="${(by - (line2 ? 7 : 0)).toFixed(1)}"
+        text-anchor="middle" dominant-baseline="middle"
+        font-size="${Math.max(9, Math.min(13, br * 0.38)).toFixed(1)}"
+        fill="${col}" font-weight="600">
+        ${line1}${line2 ? `</text><text class="bubble-label" x="${bx.toFixed(1)}" y="${(by + 10).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.max(9, Math.min(13, br * 0.38)).toFixed(1)}" fill="${col}" font-weight="600">${line2}` : ""}</text>
+    </g>`;
+  });
+
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = svgHTML;
+}
+
+function showMapDetail(j) {
+  // Highlight selected bubble
+  document.querySelectorAll(".bubble-g circle").forEach((c, i) => {
+    c.setAttribute("stroke-width", i === j ? "3" : "1.5");
+    c.setAttribute("opacity", i === j ? "1" : "0.75");
+  });
+  const col   = color();
+  const info  = data_by_category[currentCat] || {};
+  const label = (info.topic_labels || [])[j] || `Topic ${j + 1}`;
+  const words = (info.topic_keys   || [])[j] || [];
+  const alpha = (info.alphas       || [])[j] || 0;
+  const chips = words.map(w => `<span class="topic-word">${w}</span>`).join("");
+  const topDocs = topDocsForTopic(j, 10);
+  let h = `<div class="detail-title">${label} <span style="font-weight:400;color:#999;font-size:12px">· Topic ${j + 1}</span></div>`;
+  h += `<div class="stats-row"><div class="stat-pill" style="background:${lcolor()}">
+    <span class="sp-val" style="color:${col}">${(alpha * 100).toFixed(1)}%</span>
+    <span class="sp-label">prevalence</span></div></div>`;
+  h += `<div class="section-title">Top words</div>`;
+  h += `<div class="topic-card-words" style="margin-bottom:12px">${chips}</div>`;
+  h += `<div class="section-title">Most representative queries</div>`;
+  topDocs.forEach((gi, rank) => {
+    h += `<div class="repr-card">
+      <span class="repr-rank" style="color:${col}">#${rank + 1}</span>
+      <span class="repr-text">${queries[gi] || ""}</span>
+    </div>`;
+  });
+  document.getElementById("map-detail-body").innerHTML = h;
 }
 
 // ── Badge & clusters ───────────────────────────────────────────────────────────
@@ -689,6 +901,7 @@ document.getElementById("cut-slider").addEventListener("input", function() {
 function selectCategory(cat) {
   currentCat      = cat;
   selectedCluster = null;
+  selectedTopic   = null;
   expandedNodes   = new Set();
 
   const info   = data_by_category[cat] || {};
@@ -710,8 +923,14 @@ function selectCategory(cat) {
     document.getElementById("tree-header-hint").textContent = "· select a cluster";
     document.getElementById("detail-body").innerHTML =
       `<div style="padding:24px 0;font-size:12px;color:#ccc">Select a cluster or node to inspect its queries.</div>`;
-  } else {
+  } else if (currentView === "topics") {
     renderTopicsView();
+    document.getElementById("topic-detail-body").innerHTML =
+      `<div style="padding:24px 0;font-size:12px;color:#ccc;line-height:1.8">Select a topic to see its most representative queries.</div>`;
+  } else if (currentView === "map") {
+    renderMapView();
+    document.getElementById("map-detail-body").innerHTML =
+      `<div style="padding:24px 0;font-size:12px;color:#ccc;line-height:1.8">Select a topic bubble to see its most representative queries.</div>`;
   }
 }
 
