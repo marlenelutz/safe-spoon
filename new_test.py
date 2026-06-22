@@ -87,7 +87,7 @@ if __name__ == "__main__":
                 do_labeller=True,
                 do_summarizer=False,
                 llm_provider="openai",
-                llm_model_type="gpt-5-nano",
+                llm_model_type="gpt-5.4-nano-2026-03-17",
                 #llm_server="http://kumo.tsc.uc3m.es:11434",
                 llm_api_key=LLM_API_KEY,
             )

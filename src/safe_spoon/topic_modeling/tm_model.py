@@ -4,6 +4,7 @@ Adapted from the topicmodeler project and TOVA.
 Authors: Jerónimo Arenas-García, J.A. Espinosa-Melchor, Lorena Calvo-Bartolomé
 """
 
+import concurrent.futures
 import itertools
 import json
 import logging
@@ -29,9 +30,9 @@ class TMmodel(object):
     """Represents a topic model (LDA-style) and provides curation operations.
 
     The model is characterised by:
-      _alphas  – topic weights vector
-      _betas   – topic-word matrix  (n_topics × n_vocab)
-      _thetas  – document-topic matrix (n_docs × n_topics, sparse)
+      _alphas  - topic weights vector
+      _betas   - topic-word matrix  (n_topics x n_vocab)
+      _thetas  - document-topic matrix (n_docs x n_topics, sparse)
 
     All matrices and derived quantities are persisted to TMfolder so that
     the object can be reconstructed from disk without retraining.
@@ -676,8 +677,8 @@ class TMmodel(object):
         else:
             return topic_docs_list
 
-    def generate_topic_outputs(self, task: str = "label", topn: int = 3, max_tokens: int = None):
-        """Generate LLM-based labels or summaries for all topics."""
+    def generate_topic_outputs(self, task: str = "label", topn: int = 3, max_tokens: int = None, batch_size: int = None, max_retries: int = 5):
+        """Generate LLM-based labels or summaries for all topics using parallel batch processing."""
         if task not in {"label", "summary"}:
             raise ValueError(f"Invalid task: {task}. Use 'label' or 'summary'.")
 
@@ -699,20 +700,42 @@ class TMmodel(object):
             #max_tokens=max_tokens,
         )
 
-        outputs = []
+        prompts = []
         for tpc_id, most_repr in enumerate(self._most_representative_docs):
             docs = "\n- " + "\n- ".join([doc_tuple[1] for doc_tuple in most_repr])
             prompt_filled = template_str.format(
                 keywords=self._tpc_descriptions[tpc_id],
                 docs=docs,
             )
-            output_text, _ = prompter.prompt(
-                question=prompt_filled,
-                system_prompt_template_path=None,
-            )
-            output_text = output_text.replace("\n", " ")
-            outputs.append((tpc_id, output_text))
-        return outputs
+            prompts.append((tpc_id, prompt_filled))
+
+        def _run_prompt(args):
+            tpc_id, prompt_filled = args
+            output_text = None
+            for attempt in range(max_retries + 1):
+                # Vary temperature on retries so joblib cache doesn't return the same empty result.
+                temperature = attempt * 0.1 if attempt > 0 else None
+                raw, _ = prompter.prompt(
+                    question=prompt_filled,
+                    system_prompt_template_path=None,
+                    temperature=temperature,
+                )
+                if raw and raw.strip():
+                    output_text = raw.replace("\n", " ")
+                    break
+                self._logger.warning(
+                    f"Topic {tpc_id}: empty output on attempt {attempt + 1}/{max_retries + 1}"
+                )
+            if output_text is None:
+                self._logger.error(f"Topic {tpc_id}: all {max_retries + 1} attempts returned empty output.")
+                output_text = ""
+            return tpc_id, output_text
+
+        max_workers = batch_size or len(prompts)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(_run_prompt, prompts))
+
+        return sorted(results, key=lambda x: x[0])
 
     def get_tpc_labels(self, topn=3, max_tokens=50):
         return self.generate_topic_outputs(task="label", topn=topn, max_tokens=max_tokens)
