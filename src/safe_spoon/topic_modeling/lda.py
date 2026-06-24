@@ -83,6 +83,7 @@ class LDATopicModel:
         labeller_prompt: Optional[str] = None,
         summarizer_prompt: Optional[str] = None,
         preprocessor=None,
+        reference_corpus: Optional[List[str]] = None,
         logger: Optional[logging.Logger] = None,
     ):
         self.model_path = Path(model_path)
@@ -103,6 +104,7 @@ class LDATopicModel:
         self.labeller_prompt = labeller_prompt
         self.summarizer_prompt = summarizer_prompt
         self._preprocessor = preprocessor
+        self._reference_corpus = reference_corpus
         self._logger = logger or logging.getLogger(__name__)
 
         self._lda_model: Optional[tp.LDAModel] = None
@@ -423,7 +425,7 @@ class LDATopicModel:
         logger: Optional[logging.Logger] = None,
         **train_kwargs,
     ) -> dict:
-        """Train LDA models across *topic_range* and return the coherence-peak candidates.
+        """Train LDA models across topic_range*and return the coherence-peak candidates.
 
         Each model is saved to base_path/model_{k}_topics/ for manual inspection.
         A summary JSON is written to base_path/optimization_results.json.
@@ -476,8 +478,22 @@ class LDATopicModel:
                 **train_kwargs,
             )
             lda.train(data)
+            
+            _log.info(f"[optimize] Recalculating coherence using external reference corpus...")
+            
+            tr_data_cohr = np.load(model_path / "TMmodel" / "topic_coherence.npy")
+            mean_coh = float(np.mean(tr_data_cohr))
+            
+            # recalculate coherence using external reference corpus
+            lda._tm.calculate_topic_coherence(
+                reference_text=lda._reference_corpus,
+            )
+            
             coh = np.load(model_path / "TMmodel" / "topic_coherence.npy")
             mean_coh = float(np.mean(coh))
+            
+            _log.info(f"[optimize] REF COHERENCE: k={k}: mean coherence = {mean_coh:.4f} VS OLD (TR DATA): {np.mean(tr_data_cohr):.4f}")
+            
             raw_scores.append(mean_coh)
             _log.info(f"[optimize] k={k}: mean coherence = {mean_coh:.4f}")
 

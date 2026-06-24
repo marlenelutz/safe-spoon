@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 from pathlib import Path
+import pandas as pd
 from sklearn.decomposition import PCA
 
 from dotenv import load_dotenv
@@ -12,7 +13,7 @@ from scipy.cluster.hierarchy import fcluster
 
 from safe_spoon.clustering import build_flat_tree, resolve_topic_label
 from safe_spoon.utils.data_utils import corpus_for_category, load_corpus_df
-from safe_spoon.utils.renderer import render_html, save_json
+from safe_spoon.utils.renderer import save_json
 from safe_spoon.preprocessing import SimpleTMPreprocessor
 from safe_spoon.topic_modeling import LDATopicModel
 from safe_spoon.topic_modeling.tm_model import top_docs_per_topic
@@ -28,17 +29,16 @@ log = logging.getLogger(__name__)
 
 # config
 INPUT_FILE = "data/high_risk_automatically_labelled_filtered_cleaned.csv" # this inludes the filtering done in aux_scripts/data_filtering.py
+INPUT_REF_FILE = "data/reference_corpus.csv" # this is the reference corpus used for coherence calculation
 CONTENT_COL = "content"
 LABEL_COL = "high_risk_label"
-TEMPLATE_FILE = "static/viz_v5_template.html"
-OUTPUT_FILE = "data/output/viz_v5_final.html"
 OUTPUT_JSON = "data/output/viz_v5_data.json"
 
 #CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
 CATEGORIES = ['Health']
 
-RETRAIN = False
-OPTIMIZE = False
+RETRAIN = True
+OPTIMIZE = True
 OPTIMIZE_RANGE = range(10, 51, 5)
 
 LLM_PROVIDER = "openai"
@@ -47,9 +47,10 @@ LLM_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 N_TOPICS  = 30
 LDA_ITERS = 500
-N_REPR_QUERIES = 5
+N_REPR_QUERIES = 50
 N_CUT_LEVELS = 40
 LINKAGE_METHOD = "average"
+
 
 
 if __name__ == "__main__":
@@ -77,6 +78,17 @@ if __name__ == "__main__":
         
         log.info("Initialising spaCy preprocessor (model=en_core_web_lg)")
         preprocessor = SimpleTMPreprocessor(spacy_model="en_core_web_lg", min_df=10, max_df=0.6, stopword_files=[str(Path(__file__).parent / "static" / "stops" / f"{cat}.txt")])
+        log.info("Spacy preprocessor initialised * min_df=%d, max_df=%.2f", preprocessor.min_df, preprocessor.max_df)
+        
+        #preprocess reference text
+        log.info("Preprocessing reference corpus from %s", INPUT_REF_FILE)
+        time_ref = time.time()
+        df_ref = preprocessor.fit_transform(pd.read_csv(INPUT_REF_FILE,  encoding="latin-1"), text_col="text", id_col="id",
+                compute_bow=False, compute_tfidf=False,
+            )
+        time_ref_elapsed = time.time() - time_ref
+        log.info("Reference corpus preprocessed in %.1f sec * %d docs", time_ref_elapsed, len(df_ref))
+
 
         model_dir = f"./data/models/{cat.replace(' ', '_')}"
         opt_base = Path(f"./data/models/{cat.replace(' ', '_')}_optimize")
@@ -93,6 +105,7 @@ if __name__ == "__main__":
                 alpha=0.1,
                 eta=0.01,
                 preprocessor=preprocessor,
+                reference_corpus=df_ref["text"].tolist(),
                 logger=log,
             )
             best = opt["selected"][0]
@@ -248,6 +261,4 @@ if __name__ == "__main__":
 
     log.info("Saving JSON to %s", OUTPUT_JSON)
     save_json(payload, OUTPUT_JSON)
-    log.info("Rendering HTML to %s", OUTPUT_FILE)
-    render_html(payload, TEMPLATE_FILE, OUTPUT_FILE)
-    log.info("Done * %s + %s", OUTPUT_FILE, OUTPUT_JSON)
+    log.info("Done * %s", OUTPUT_JSON)

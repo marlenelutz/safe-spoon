@@ -397,6 +397,8 @@ class TMmodel(object):
 
         if reference_text is None:
             corpus = [el.split() for el in self._df_corpus_train["text"].values.tolist()]
+        elif reference_text and isinstance(reference_text[0], str):
+            corpus = [el.split() for el in reference_text]
         else:
             corpus = reference_text
 
@@ -550,7 +552,7 @@ class TMmodel(object):
         mat,
         topn=None,
         get_text=False,
-        length_quantile_bounds=(0.1, 0.9),
+        length_quantile_bounds=(0.3, 0.9),
         poly_degree=3,
         smoothing_window=5,
         seed=2357_11,
@@ -640,7 +642,7 @@ class TMmodel(object):
                 docs=docs,
             )
             prompts.append((tpc_id, prompt_filled))
-                    
+                
         def _run_prompt(args):
             tpc_id, prompt_filled = args
             output_text = None
@@ -1012,17 +1014,12 @@ def top_docs_per_topic(
     thetas: np.ndarray,
     queries: List[str],
     topn: int = 10,
-    length_quantile_bounds: tuple = (0.10, 0.90),
+    length_quantile_bounds: tuple = (0.30, 0.90),
     s3: Optional[np.ndarray] = None,
     poly_degree: int = 3,
     smoothing_window: int = 5,
 ) -> List[List[int]]:
-    """Return the top-*topn* document indices per topic for a category subset.
-
-    Uses the same scoring logic as TMmodel.get_most_representative_per_tpc:
-    elbow detection on theta to gate candidates, then combined S3+theta scoring
-    (when *s3* is supplied) or pure theta (fallback). Length quantile filtering
-    is applied before elbow gating.
+    """Return the top-topn document indices per topic for a category subset. Documents are selected by first relying on the elbow method to find a threshold on the topic distribution, then scoring candidates by either combined S3+theta or pure theta. Length quantile filtering is applied before elbow gating so we do not end up with very short or very long queries.
 
     Parameters
     ----------

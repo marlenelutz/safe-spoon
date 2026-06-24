@@ -76,7 +76,17 @@ load_labels()
 
 @app.route("/")
 def index():
-    return send_file("static/viz_v5_template.html")
+    return send_file("static/front.html")
+
+
+@app.route("/support.js")
+def serve_support():
+    return send_file("static/support.js")
+
+
+@app.route("/jelly_logo4.png")
+def serve_logo():
+    return send_file("static/jelly_logo4.png")
 
 
 @app.route("/api/init")

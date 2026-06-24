@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Marker Felt', cursive; background: #e8eaee; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #c7ccd4; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes ss-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  textarea { font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Marker Felt', cursive; }
+</style>
+</helmet>
+<div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#eceef1); color: var(--ink,#1f2430); overflow: hidden;">
+
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#eef0f3;z-index:999;font-family:inherit;font-size:15px;font-weight:600;color:#6b7280;letter-spacing:0.01em;">
+      Loading data&hellip;
+    </div>
+  </sc-if>
+
+  <!-- Header -->
+  <header style="display: flex; align-items: center; gap: 18px; padding: 14px 26px; background: var(--panel,#ffffff); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 11px;">
+      <div style="display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative;">
+        <img src="./jelly_logo4.png" alt="safe spoon logo" style="height: 40px; width: auto; display: block;">
+      </div>
+      <div style="line-height: 1.1;">
+        <div style="font-size: 16px; font-weight: 800; letter-spacing: -0.02em;">safe-spoon</div>
+        <div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 500;">A human-in-the-loop safety guideline annotation tool</div>
+      </div>
+    </div>
+
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">
+      <sc-if value="{{ isUnits }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ink2,#6b7280); font-weight: 600;">
+          <div style="width: 92px; height: 7px; border-radius: 7px; background: var(--border,#e3e6eb); overflow: hidden;">
+            <div style="height: 100%; width: {{ progressPct }}; background: var(--accent, #2f63d6); border-radius: 7px; transition: width .3s ease;"></div>
+          </div>
+          <span>{{ unitProgressText }}</span>
+        </div>
+      </sc-if>
+
+      <div style="display: flex; background: var(--track,#eceef2); border-radius: 11px; padding: 3px; gap: 2px;">
+        <button onClick="{{ viewGroups }}" style="{{ tabGroupsStyle }}">Groups</button>
+        <button onClick="{{ viewThemes }}" style="{{ tabThemesStyle }}">Themes</button>
+        <button onClick="{{ viewUnits }}" style="{{ tabUnitsStyle }}">Guidelines</button>
+      </div>
+
+      <button onClick="{{ downloadData }}" title="Download your labels & guidelines as CSV" style="border: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); color: var(--ink2,#6b7280); font-weight: 600; font-size: 12px; padding: 7px 13px; border-radius: 9px; cursor: pointer; font-family: inherit;">&#8595; Export</button>
+    </div>
+  </header>
+
+  <!-- Category tabs -->
+  <nav style="display: flex; align-items: center; gap: 4px; padding: 0 24px; background: var(--panel,#ffffff); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
+    <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; margin-right: 8px;">Domain</span>
+    <sc-for list="{{ cats }}" as="c" hint-placeholder-count="2">
+      <button onClick="{{ c.onClick }}" style="{{ c.style }}">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ c.color }}; display: inline-block;"></span>
+        {{ c.label }}
+      </button>
+    </sc-for>
+  </nav>
+
+  <!-- ============ GROUPS VIEW ============ -->
+  <sc-if value="{{ isGroups }}" hint-placeholder-val="{{ true }}">
+  <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="padding: 14px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); display: flex; align-items: center; gap: 20px; flex-shrink: 0; flex-wrap: wrap;">
+      <div style="max-width: 360px;">
+        <div style="font-size: 13px; font-weight: 700;">How finely should we group the queries?</div>
+        <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-top: 1px;">{{ granDesc }}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 280px; max-width: 460px;">
+        <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600; white-space: nowrap;">Fewer, broader</span>
+        <input type="range" min="2" max="{{ sliderMax }}" value="{{ gran }}" onInput="{{ onSlider }}" style="flex: 1; accent-color: var(--accent, #2f63d6); cursor: pointer;">
+        <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600; white-space: nowrap;">More, smaller</span>
+      </div>
+      <div style="background: var(--soft, #e8edfb); color: var(--accent, #2f63d6); font-weight: 700; font-size: 13px; padding: 6px 15px; border-radius: 99px;">{{ clusterCount }} groups</div>
+    </div>
+
+    <div style="flex: 1; display: flex; overflow: hidden;">
+      <!-- cluster list -->
+      <div style="width: 340px; flex-shrink: 0; border-right: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto; padding: 12px;">
+        <sc-for list="{{ clusters }}" as="cl" hint-placeholder-count="4">
+          <div onClick="{{ cl.onClick }}" style="{{ cl.style }}">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 7px;">
+              <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 13px; color: var(--accent, #2f63d6); background: var(--soft, #e8edfb); width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">{{ cl.letter }}</span>
+              <span style="font-size: 13px; font-weight: 700; flex: 1;">{{ cl.title }}</span>
+              <span style="font-size: 11px; font-weight: 700; color: var(--ink3,#98a0ab);">{{ cl.size }}</span>
+            </div>
+            <sc-for list="{{ cl.preview }}" as="p" hint-placeholder-count="2">
+              <div style="font-size: 11.5px; color: var(--ink2,#6b7280); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">&middot; {{ p.text }}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- cluster detail -->
+      <div style="flex: 1; overflow-y: auto; min-width: 0;">
+        <sc-if value="{{ clusterSelected }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 22px 28px; animation: ss-fade .25s ease;">
+            <!-- breadcrumb -->
+            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
+              <sc-for list="{{ gDetail.breadcrumb }}" as="b" hint-placeholder-count="1">
+                <span onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</span>
+                <sc-if value="{{ b.sep }}" hint-placeholder-val="{{ false }}"><span style="color: var(--ink4,#bcc2cc); font-size: 12px;">&rsaquo;</span></sc-if>
+              </sc-for>
+            </div>
+            <h2 style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px;">{{ gDetail.title }}</h2>
+            <div style="font-size: 13px; color: var(--ink3,#98a0ab); margin-bottom: 18px;">{{ gDetail.subtitle }}</div>
+
+            <!-- theme mix -->
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">What this group is mostly about</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-width: 560px;">
+              <sc-for list="{{ gDetail.themeBars }}" as="t" hint-placeholder-count="3">
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;"><span style="font-weight: 600; color: var(--ink,#1f2430);">{{ t.label }}</span><span style="font-weight: 700; color: var(--ink2,#6b7280);">{{ t.pct }}</span></div>
+                  <div style="height: 8px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 6px;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- subgroup tree -->
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">Zoom into sub-groups <span style="font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink4,#bcc2cc);">&mdash; click to focus the queries below</span></div>
+            <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 12px; padding: 6px; margin-bottom: 22px; max-width: 620px;">
+              <sc-for list="{{ gDetail.treeRows }}" as="r" hint-placeholder-count="3">
+                <div style="{{ r.rowStyle }}">
+                  <span onClick="{{ r.onToggle }}" style="{{ r.toggleStyle }}">{{ r.toggle }}</span>
+                  <span onClick="{{ r.onFocus }}" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.label }}</span>
+                  <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; flex-shrink: 0;">{{ r.size }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- queries -->
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">{{ gDetail.queryHeader }}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
+              <sc-for list="{{ gDetail.queries }}" as="q" hint-placeholder-count="4">
+                <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
+                  <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
+                  <div style="display: flex; gap: 8px; margin-top: 9px;">
+                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
+                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noCluster }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 60px 40px; text-align: center; color: var(--ink4,#bcc2cc); font-size: 14px; line-height: 1.7;">Pick a group on the left to explore the queries inside it.</div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ THEMES VIEW ============ -->
+  <sc-if value="{{ isThemes }}" hint-placeholder-val="{{ false }}">
+  <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="display: flex; gap: 4px; padding: 9px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
+      <button onClick="{{ modeCards }}" style="{{ themeCardsTabStyle }}">Theme cards</button>
+      <button onClick="{{ modeMap }}" style="{{ themeMapTabStyle }}">Map</button>
+    </div>
+    <div style="flex: 1; display: flex; overflow: hidden;">
+      <!-- left: cards or map -->
+      <sc-if value="{{ isCards }}" hint-placeholder-val="{{ true }}">
+        <div style="flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; align-content: start;">
+            <sc-for list="{{ topicCards }}" as="tc" hint-placeholder-count="5">
+              <div onClick="{{ tc.onClick }}" style="{{ tc.style }}">
+                <div style="font-size: 10px; font-weight: 700; color: {{ tc.color }}; text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tc.num }}</div>
+                <div style="font-size: 15px; font-weight: 800; line-height: 1.3; margin: 5px 0 9px; color: var(--ink,#1f2430);">{{ tc.label }}</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 11px;">
+                  <sc-for list="{{ tc.words }}" as="w" hint-placeholder-count="4">
+                    <span style="background: var(--chip,#eef0f4); border-radius: 6px; padding: 2px 8px; font-size: 11px; color: var(--ink2,#6b7280);">{{ w.w }}</span>
+                  </sc-for>
+                </div>
+                <div style="height: 6px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ tc.prevWidth }}; background: {{ tc.color }}; border-radius: 6px;"></div></div>
+                <div style="font-size: 11px; color: var(--ink3,#98a0ab); margin-top: 5px; font-weight: 600;">{{ tc.pctLabel }} of queries</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-width: 0; overflow: hidden; position: relative; cursor: {{ mapCursor }}; user-select: none;"
+             onWheel="{{ onMapWheel }}" onMouseDown="{{ onMapDown }}" onMouseMove="{{ onMapMove }}"
+             onMouseUp="{{ onMapUp }}" onMouseLeave="{{ onMapUp }}">
+          <!-- zoom controls -->
+          <div style="position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 4px;"
+               onMouseDown="{{ stopMapDrag }}">
+            <button onClick="{{ zoomIn }}" style="width:30px;height:30px;border:1px solid var(--border,#e6e8ec);background:var(--panel,#fff);color:var(--ink,#1f2430);font-size:17px;font-weight:700;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">+</button>
+            <button onClick="{{ zoomOut }}" style="width:30px;height:30px;border:1px solid var(--border,#e6e8ec);background:var(--panel,#fff);color:var(--ink,#1f2430);font-size:17px;font-weight:700;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">−</button>
+            <button onClick="{{ resetMap }}" title="Reset view" style="width:30px;height:30px;border:1px solid var(--border,#e6e8ec);background:var(--panel,#fff);color:var(--ink2,#6b7280);font-size:10px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;">fit</button>
+          </div>
+          <!-- panzoom layer: transform-origin 0 0, fills parent -->
+          <div style="position: absolute; inset: 0; transform-origin: 0 0; transform: {{ mapTransform }}; display: flex; align-items: center; justify-content: center;">
+            <!-- fixed 800×620 content -->
+            <div style="position: relative; width: 800px; height: 620px; flex-shrink: 0;">
+              <svg viewBox="0 0 800 620" style="width: 100%; height: 100%; display: block;">
+                <sc-for list="{{ bubbles }}" as="b" hint-placeholder-count="5">
+                  <circle cx="{{ b.cx }}" cy="{{ b.cy }}" r="{{ b.r }}" fill="{{ b.fill }}" stroke="{{ b.stroke }}" stroke-width="{{ b.sw }}" style="cursor: pointer; transition: all .2s;" onClick="{{ b.onClick }}"></circle>
+                </sc-for>
+              </svg>
+              <div style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;">
+                <sc-for list="{{ bubbles }}" as="b" hint-placeholder-count="5">
+                  <div style="{{ b.labelStyle }}">
+                    <div style="{{ b.labelTextStyle }}">{{ b.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <!-- theme detail -->
+      <div style="width: 400px; flex-shrink: 0; border-left: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto;">
+        <sc-if value="{{ topicSelected }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 22px 24px; animation: ss-fade .25s ease;">
+            <div style="font-size: 10px; font-weight: 700; color: var(--accent, #2f63d6); text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tDetail.num }}</div>
+            <h2 style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 12px;">{{ tDetail.label }}</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;">
+              <sc-for list="{{ tDetail.words }}" as="w" hint-placeholder-count="6">
+                <span style="background: var(--chip,#eef0f4); border-radius: 6px; padding: 3px 9px; font-size: 11.5px; color: var(--ink2,#6b7280);">{{ w.w }}</span>
+              </sc-for>
+            </div>
+            <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-bottom: 18px; font-weight: 600;">Appears in {{ tDetail.pctLabel }} of this domain&rsquo;s queries</div>
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">Typical queries</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{ tDetail.queries }}" as="q" hint-placeholder-count="4">
+                <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ UNITS / GUIDELINES VIEW ============ -->
+  <sc-if value="{{ isUnits }}" hint-placeholder-val="{{ false }}">
+  <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+    <sc-if value="{{ showIntro }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 14px 26px; background: var(--soft, #e8edfb); border-bottom: 1px solid var(--border,#e3e6eb);">
+        <div style="font-size: 13px; line-height: 1.6; color: var(--ink,#1f2430); max-width: 900px;">
+          <strong>Your job here.</strong> Each card below is a group of similar queries, sized to be just right for writing <strong>one safety guideline</strong> &mdash; not so broad it covers everything, not so narrow it&rsquo;s a single query. Work through them top to bottom: the ones at the top are the most <em>mixed</em> and sensitive, so they need your attention first. Open a group, read its queries, then write the guideline that tells an annotator how to handle them safely.
+        </div>
+        <button onClick="{{ dismissIntro }}" style="margin-left: auto; border: none; background: none; cursor: pointer; font-size: 16px; color: var(--accent,#2f63d6); flex-shrink: 0; line-height: 1;">&times;</button>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; gap: 14px; padding: 9px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
+      <div style="display: flex; background: var(--track,#eceef2); border-radius: 9px; padding: 3px; gap: 2px;">
+        <button onClick="{{ modeTree }}" style="{{ unitTreeTabStyle }}">By hierarchy</button>
+        <button onClick="{{ modePriority }}" style="{{ unitPriorityTabStyle }}">By priority</button>
+      </div>
+      <div style="font-size: 12px; color: var(--ink3,#98a0ab);">{{ unitModeHint }}</div>
+    </div>
+
+    <div style="flex: 1; display: flex; overflow: hidden;">
+      <!-- left: tree or priority list -->
+      <div style="width: 380px; flex-shrink: 0; border-right: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto; padding: 12px;">
+        <sc-if value="{{ isTree }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ unitTreeRows }}" as="r" hint-placeholder-count="6">
+            <div style="{{ r.rowStyle }}">
+              <span onClick="{{ r.onToggle }}" style="{{ r.toggleStyle }}">{{ r.toggle }}</span>
+              <sc-if value="{{ r.isUnit }}" hint-placeholder-val="{{ false }}">
+                <span onClick="{{ r.onClick }}" style="{{ r.badgeStyle }}">{{ r.rank }}</span>
+              </sc-if>
+              <span onClick="{{ r.onClick }}" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: {{ r.fontSize }}; font-weight: {{ r.weight }}; color: {{ r.textColor }};">{{ r.label }}</span>
+              <sc-if value="{{ r.isUnit }}" hint-placeholder-val="{{ false }}"><span style="{{ r.statusDot }}"></span></sc-if>
+              <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; flex-shrink: 0;">{{ r.size }}</span>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ isPriority }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ priorityList }}" as="u" hint-placeholder-count="5">
+            <div onClick="{{ u.onClick }}" style="{{ u.style }}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 12px; color: var(--panel,#ffffff); background: var(--accent, #2f63d6); min-width: 24px; height: 24px; padding: 0 6px; border-radius: 7px; display: flex; align-items: center; justify-content: center;">{{ u.rank }}</span>
+                <span style="font-size: 13.5px; font-weight: 700; flex: 1; line-height: 1.3;">{{ u.label }}</span>
+                <span style="{{ u.statusChip }}">{{ u.statusLabel }}</span>
+              </div>
+              <div style="display: flex; gap: 14px; margin-top: 8px; margin-left: 34px;">
+                <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">{{ u.size }} queries</span>
+                <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">{{ u.diversity }} mixed</span>
+              </div>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+
+      <!-- right: unit detail + guideline composer -->
+      <div style="flex: 1; overflow-y: auto; min-width: 0;">
+        <sc-if value="{{ unitSelected }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 22px 28px; animation: ss-fade .25s ease; max-width: 820px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+              <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 12px; color: var(--panel,#ffffff); background: var(--accent, #2f63d6); padding: 3px 9px; border-radius: 7px;">Priority {{ uDetail.rank }}</span>
+              <span style="{{ uDetail.statusChip }}">{{ uDetail.statusLabel }}</span>
+            </div>
+            <h2 style="font-size: 23px; font-weight: 800; letter-spacing: -0.02em; margin: 6px 0 4px;">{{ uDetail.label }}</h2>
+            <div style="font-size: 13px; color: var(--ink3,#98a0ab); margin-bottom: 18px;">A group of {{ uDetail.size }} similar queries selected as the right scope for one guideline.</div>
+
+            <!-- plain-language stats -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+              <div style="background: var(--soft, #e8edfb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800; color: var(--accent, #2f63d6);">{{ uDetail.size }}</div><div style="font-size: 11px; color: var(--ink2,#6b7280); font-weight: 600;">queries</div></div>
+              <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800;">{{ uDetail.diversity }}</div><div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">theme mix</div></div>
+              <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800;">{{ uDetail.priority }}</div><div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">urgency</div></div>
+            </div>
+            <div style="margin-bottom: 20px;">
+              <span onClick="{{ toggleGlossary }}" style="font-size: 12px; color: var(--accent, #2f63d6); font-weight: 600; cursor: pointer;">{{ glossaryToggleLabel }}</span>
+              <sc-if value="{{ showGlossary }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 8px; background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 13px 15px; font-size: 12.5px; line-height: 1.65; color: var(--ink2,#6b7280);">
+                  <div><strong style="color: var(--ink,#1f2430);">Theme mix</strong> &mdash; how varied the queries are. A high mix means the group covers several topics, so its guideline needs to cover more ground.</div>
+                  <div style="margin-top: 6px;"><strong style="color: var(--ink,#1f2430);">Urgency</strong> &mdash; how soon this group should get a guideline. It&rsquo;s higher when the group is big, varied, and was formed from two evenly-sized halves.</div>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- guideline composer -->
+            <div style="background: var(--panel,#ffffff); border: 2px solid var(--soft, #e8edfb); border-radius: 14px; padding: 18px; margin-bottom: 24px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <h3 style="font-size: 15px; font-weight: 800; margin: 0;">Safety guideline for this group</h3>
+              </div>
+              <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-bottom: 11px;">Write how an annotator should handle these queries safely. This is saved automatically.</div>
+              <textarea value="{{ uDetail.guideline }}" onChange="{{ onGuidelineInput }}" onInput="{{ onGuidelineInput }}" placeholder="e.g. These are genuine health questions. Flag any that ask for diagnosis or dosing as needing a medical disclaimer&hellip;" style="width: 100%; min-height: 120px; resize: vertical; border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 12px 13px; font-size: 13.5px; line-height: 1.6; color: var(--ink,#1f2430); background: var(--surface,#f5f6f8); outline: none;"></textarea>
+              <div style="display: flex; gap: 9px; margin-top: 11px; align-items: center;">
+                <button onClick="{{ suggestDraft }}" style="border: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); color: var(--ink,#1f2430); font-weight: 700; font-size: 12.5px; padding: 8px 14px; border-radius: 9px; cursor: pointer; font-family: inherit;">&#10024; Suggest a draft</button>
+                <button onClick="{{ markDone }}" style="{{ markDoneStyle }}">{{ markDoneLabel }}</button>
+              </div>
+            </div>
+
+            <!-- dominant theme + representative queries -->
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">Mostly about</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-width: 560px;">
+              <sc-for list="{{ uDetail.themeBars }}" as="t" hint-placeholder-count="2">
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;"><span style="font-weight: 600; color: var(--ink,#1f2430);">{{ t.label }}</span><span style="font-weight: 700; color: var(--ink2,#6b7280);">{{ t.pct }}</span></div>
+                  <div style="height: 8px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 6px;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">Representative queries</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{ uDetail.queries }}" as="q" hint-placeholder-count="4">
+                <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
+                  <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
+                  <div style="display: flex; gap: 8px; margin-top: 9px;">
+                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
+                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noUnit }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 60px 40px; text-align: center; color: var(--ink4,#bcc2cc); font-size: 14px; line-height: 1.7;">Pick a group from the list to read its queries and write its safety guideline.</div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1280, &quot;height&quot;: 820}, &quot;background&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Gray&quot;, &quot;options&quot;: [&quot;Gray&quot;, &quot;Warm&quot;], &quot;tsType&quot;: &quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.TINTS = ['#2f6b4f', '#b9762f', '#3f6cc4', '#9a5bbf', '#c2503f'];
+    this.CATMETA = {};
+    this.CATS = {};
+    this.MIN_SIZE = 3;
+    this.MAX_PURITY = 0.6;
+
+    const labels = this._load('safespoon.labels', {});
+    const guides = this._load('safespoon.guidelines', {});
+    this.state = {
+      loading: true,
+      view: 'groups',
+      catKey: null,
+      gran: 4,
+      selCluster: null, focus: null, cCollapsed: new Set(),
+      selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null,
+      uMode: 'tree', selUnit: null, uCollapsed: new Set(),
+      showIntro: true, showGlossary: false,
+      labels, guides,
+    };
+  }
+
+  // ---------- persistence ----------
+  _load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  _save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  componentDidMount() {
+    const catSofts = ['#e7f0ea', '#f3eee7', '#e8eef9', '#f2eef8', '#f9eded'];
+    fetch('/api/init').then(r => r.json()).then(async init => {
+      init.categories.forEach((k, i) => {
+        this.CATMETA[k] = { color: this.TINTS[i % this.TINTS.length], soft: catSofts[i % catSofts.length] };
+      });
+      for (const cat of init.categories) {
+        const [cd, td] = await Promise.all([
+          fetch('/api/category/' + encodeURIComponent(cat)).then(r => r.json()),
+          fetch('/api/tree/'     + encodeURIComponent(cat)).then(r => r.json()),
+        ]);
+        this.CATS[cat] = this._buildCat(cat, cd, td);
+      }
+      this.setState({ loading: false, catKey: init.categories[0] });
+    });
+  }
+
+  // ---------- build ----------
+  _buildCat(key, catData, treeData) {
+    const T = catData.topic_labels.length;
+    const queries = catData.queries;
+    const thetas  = catData.thetas;
+    const coords  = catData.tpc_coords;
+
+    const xs = coords.map(c => c[0]), ys = coords.map(c => c[1]);
+    const xlo = Math.min.apply(null, xs), xhi = Math.max.apply(null, xs);
+    const ylo = Math.min.apply(null, ys), yhi = Math.max.apply(null, ys);
+    const norm = (v, lo, hi) => lo === hi ? 0.5 : +(0.05 + 0.9 * (v - lo) / (hi - lo)).toFixed(3);
+
+    const topics = catData.topic_labels.map((label, i) => ({
+      label, words: catData.topic_keys[i].slice(0, 7),
+      x: norm(coords[i][0], xlo, xhi),
+      y: norm(coords[i][1], ylo, yhi),
+    }));
+
+    const nodeMap = {};
+    for (const n of treeData.nodes) nodeMap[String(n.id)] = n;
+    const byId = {};
+    const rootKey = String(treeData.root_id);
+    const qiToTopic = {};
+
+    const postStack = [[rootKey, false]];
+    while (postStack.length) {
+      const [nkey, childrenDone] = postStack.pop();
+      const flat = nodeMap[nkey];
+      const isLeaf = !flat.children_ids || flat.children_ids.length === 0;
+
+      if (isLeaf) {
+        const qi = flat.id;
+        const theta = (thetas[qi] && thetas[qi].length) ? thetas[qi] : Array(T).fill(1 / T);
+        let domT = 0;
+        theta.forEach((w, k) => { if (w > theta[domT]) domT = k; });
+        qiToTopic[qi] = domT;
+        byId[nkey] = { id: nkey, leaf: true, qi, topic: domT, q: queries[qi], size: 1, theta, repr: [qi], parent: null };
+      } else if (childrenDone) {
+        const childKeys = flat.children_ids.map(String);
+        const children = childKeys.map(ck => byId[ck]);
+        const size = children.reduce((s, c) => s + c.size, 0);
+        const th = Array(T).fill(0);
+        children.forEach(c => { for (let k = 0; k < T; k++) th[k] += c.theta[k] * c.size; });
+        for (let k = 0; k < T; k++) th[k] /= size;
+        const repr = (flat.repr || []).slice(0, 50);
+        const label = repr.length ? queries[repr[0]].slice(0, 60) : (flat.name || nkey);
+        byId[nkey] = { id: nkey, leaf: false, label, children, size, theta: th, repr, parent: null };
+        children.forEach(c => { c.parent = byId[nkey]; });
+      } else {
+        postStack.push([nkey, true]);
+        const childKeys = flat.children_ids.map(String);
+        for (let i = childKeys.length - 1; i >= 0; i--) postStack.push([childKeys[i], false]);
+      }
+    }
+
+    for (const n of Object.values(byId)) {
+      let dom = -1, domT = 0;
+      n.theta.forEach((w, k) => { if (w > dom) { dom = w; domT = k; } });
+      n.dominant_weight = dom; n.dominant_topic = domT; n.topic_mixture = 1 - dom;
+      if (n.leaf) { n.merge_balance = 1; n.dist = 0; }
+      else {
+        const sizes = n.children.map(c => c.size);
+        n.merge_balance = Math.min.apply(null, sizes) / Math.max.apply(null, sizes);
+        n.dist = +(1 - dom).toFixed(3);
+      }
+    }
+
+    return { key, topics, queries, root: byId[rootKey], byId, qiToTopic };
+  }
+
+  cat() { return this.CATS[this.state.catKey]; }
+  meta() { return this.CATMETA[this.state.catKey]; }
+  topicColor(j) { return this.TINTS[j % this.TINTS.length]; }
+
+  reprOf(n) { return n.repr || (n.leaf ? [n.qi] : []); }
+  _leafTopic(qi) { return this.cat()?.qiToTopic?.[qi] ?? -1; }
+
+  unitLabel(n) {
+    const cat = this.cat();
+    const ranked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w);
+    const parts = [];
+    for (const r of ranked) { if (r.w < 0.16 || parts.length >= 2) break; parts.push(cat.topics[r.j].label); }
+    return parts.length ? parts.join(' / ') : 'Mixed queries';
+  }
+
+  themeBars(n) {
+    const cat = this.cat();
+    const ranked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w).filter(x => x.w > 0.08).slice(0, 5);
+    if (!ranked.length) return [];
+    const max = ranked[0].w;
+    return ranked.map(r => ({
+      label: cat.topics[r.j].label,
+      pct: Math.round(r.w * 100) + '%',
+      width: (r.w / max * 100).toFixed(0) + '%',
+      color: this.topicColor(r.j),
+    }));
+  }
+
+  // ---------- clusters ----------
+  clustersFor(K) {
+    const root = this.cat().root;
+    let nodes = [root];
+    while (nodes.length < K) {
+      let idx = -1, best = -1;
+      nodes.forEach((n, i) => { if (!n.leaf && n.size > best) { best = n.size; idx = i; } });
+      if (idx < 0) break;
+      const n = nodes[idx];
+      nodes = nodes.slice(0, idx).concat(n.children, nodes.slice(idx + 1));
+    }
+    return nodes.sort((a, b) => b.size - a.size);
+  }
+
+  // ---------- units ----------
+  unitData() {
+    const cat = this.cat();
+    const self = this;
+
+    // Iterative DFS: build unit tree and collect leaf units without recursion
+    const unitNodes = {};
+    const dfsStack = [[cat.root.id, null]];
+    while (dfsStack.length) {
+      const [nid, parentId] = dfsStack.pop();
+      const n = cat.byId[nid];
+      const isUnit = n.leaf || n.size <= self.MIN_SIZE || n.dominant_weight >= self.MAX_PURITY;
+      const obj = isUnit ? { id: nid, unit: true, node: n } : { id: nid, branch: true, node: n, children: [] };
+      unitNodes[nid] = obj;
+      if (parentId !== null) unitNodes[parentId].children.push(obj);
+      if (!isUnit) {
+        for (let i = n.children.length - 1; i >= 0; i--) dfsStack.push([n.children[i].id, nid]);
+      }
+    }
+    const tree = unitNodes[cat.root.id];
+
+    const units = [];
+    const colStack = [tree];
+    while (colStack.length) {
+      const x = colStack.pop();
+      if (x.unit) { units.push(x); }
+      else { for (let i = x.children.length - 1; i >= 0; i--) colStack.push(x.children[i]); }
+    }
+    const maxSize = Math.max.apply(null, units.map(u => u.node.size).concat([1]));
+    units.forEach(u => {
+      const n = u.node;
+      const sn = Math.log(1 + n.size) / Math.log(1 + maxSize);
+      u.priority = 0.5 * n.topic_mixture + 0.3 * sn + 0.2 * n.merge_balance;
+    });
+    units.slice().sort((a, b) => b.priority - a.priority).forEach((u, i) => { u.priority_rank = i + 1; });
+    const rankById = {}; units.forEach(u => { rankById[u.id] = u.priority_rank; });
+    return { tree, units, rankById };
+  }
+
+  guideStatus(unitId) {
+    const g = (this.state.guides[this.state.catKey] || {})[unitId];
+    if (!g) return 'empty';
+    return g.done ? 'done' : 'draft';
+  }
+  guideText(unitId) {
+    const g = (this.state.guides[this.state.catKey] || {})[unitId];
+    return g ? (g.text || '') : '';
+  }
+
+  // ---------- mutations ----------
+  setView(v) { this.setState({ view: v, showGlossary: false }); }
+  pickCat(k) {
+    this.setState({ catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(), gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0 });
+  }
+  setGran(v) { this.setState({ gran: +v, selCluster: null, focus: null }); }
+  selectCluster(node) {
+    this.setState({ selCluster: node.id, focus: node.id, cCollapsed: new Set() });
+  }
+  setFocus(id) { this.setState({ focus: id }); }
+  toggleCollapse(setKey, id) {
+    const s = new Set(this.state[setKey]);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    this.setState({ [setKey]: s });
+  }
+  selectUnit(id) { this.setState({ selUnit: id }); }
+  selectTopic(j) { this.setState({ selTopic: j }); }
+
+  _onMapWheel(e) {
+    const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+    const { mapZoom, mapPanX, mapPanY } = this.state;
+    const newZoom = Math.min(8, Math.max(0.3, mapZoom * factor));
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const k = newZoom / mapZoom;
+    this.setState({ mapZoom: newZoom, mapPanX: mx*(1-k) + mapPanX*k, mapPanY: my*(1-k) + mapPanY*k });
+  }
+  _onMapDown(e) {
+    if (e.button !== 0) return;
+    this.setState({ _mapDrag: { ox: e.clientX - this.state.mapPanX, oy: e.clientY - this.state.mapPanY } });
+  }
+  _onMapMove(e) {
+    const d = this.state._mapDrag;
+    if (d) this.setState({ mapPanX: e.clientX - d.ox, mapPanY: e.clientY - d.oy });
+  }
+  _onMapUp() { this.setState({ _mapDrag: null }); }
+  _resetMap() { this.setState({ mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null }); }
+
+  setLabel(qi, field, val) {
+    const labels = JSON.parse(JSON.stringify(this.state.labels));
+    const ck = this.state.catKey;
+    if (!labels[ck]) labels[ck] = {};
+    if (!labels[ck][qi]) labels[ck][qi] = { trash: false, demo: false };
+    labels[ck][qi][field] = val;
+    this.setState({ labels });
+    this._save('safespoon.labels', labels);
+  }
+  getLabel(qi) { return ((this.state.labels[this.state.catKey] || {})[qi]) || { trash: false, demo: false }; }
+
+  setGuide(unitId, text, done) {
+    const guides = JSON.parse(JSON.stringify(this.state.guides));
+    const ck = this.state.catKey;
+    if (!guides[ck]) guides[ck] = {};
+    const prev = guides[ck][unitId] || { text: '', done: false };
+    guides[ck][unitId] = { text: text != null ? text : prev.text, done: done != null ? done : prev.done };
+    if (!guides[ck][unitId].text) guides[ck][unitId].done = false;
+    this.setState({ guides });
+    this._save('safespoon.guidelines', guides);
+  }
+
+  suggestDraft(u) {
+    const cat = this.cat();
+    const n = u.node;
+    const theme = this.unitLabel(n);
+    const ex = this.reprOf(n).slice(0, 2).map(qi => '"' + cat.queries[qi] + '"');
+    const mixed = n.topic_mixture > 0.5;
+    let txt = 'Queries in this group are mostly about ' + theme.toLowerCase() + ' (e.g. ' + ex.join('; ') + '). ';
+    txt += 'Flag "Not a real request" for test/exam-style prompts that aren\u2019t genuine help-seeking, and "Mentions personal details" when the user states age, sex, or health conditions. ';
+    if (mixed) txt += 'This group is varied, so treat each query on its own and lean cautious: anything touching self-harm, medication dosing, or diagnosis should be routed for a careful, supportive response with a clear disclaimer.';
+    else txt += 'Responses should stay general and supportive, avoid specific dosing or diagnosis, and recommend a professional where appropriate.';
+    this.setGuide(u.id, txt, false);
+  }
+
+  downloadData() {
+    const rows = [['domain', 'kind', 'id', 'value']];
+    Object.keys(this.state.labels).forEach(ck => {
+      Object.keys(this.state.labels[ck]).forEach(qi => {
+        const l = this.state.labels[ck][qi];
+        rows.push([ck, 'label', 'q' + qi, 'trash=' + l.trash + ';demo=' + l.demo]);
+      });
+    });
+    Object.keys(this.state.guides).forEach(ck => {
+      Object.keys(this.state.guides[ck]).forEach(uid => {
+        const g = this.state.guides[ck][uid];
+        rows.push([ck, 'guideline', uid, '"' + (g.text || '').replace(/"/g, "'") + '" (' + (g.done ? 'done' : 'draft') + ')']);
+      });
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'safespoon_annotations.csv';
+    a.click();
+  }
+
+  // ---------- style helpers ----------
+  _tab(active) {
+    return 'border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;padding:6px 15px;border-radius:8px;transition:all .15s;' +
+      (active ? 'background:var(--panel,#ffffff);color:var(--accent,#2f63d6);box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'background:transparent;color:var(--ink3,#98a0ab);');
+  }
+  _catTab(active, color) {
+    return 'display:flex;align-items:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;padding:11px 13px;background:transparent;transition:all .15s;border-bottom:2px solid ' +
+      (active ? 'var(--accent,#2f63d6)' : 'transparent') + ';color:' + (active ? 'var(--ink,#1f2430)' : 'var(--ink3,#98a0ab)') + ';';
+  }
+  _statusChip(status) {
+    const map = {
+      done: 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);',
+      draft: 'background:#fdf3e3;color:#b9762f;',
+      empty: 'background:var(--track,#eceef2);color:var(--ink3,#98a0ab);',
+    };
+    return 'font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:99px;flex-shrink:0;' + map[status];
+  }
+  _statusLabel(status) { return { done: 'Guideline ready', draft: 'Draft', empty: 'Needs guideline' }[status]; }
+  _statusDot(status) {
+    const c = { done: 'var(--accent,#2f63d6)', draft: '#e0a23c', empty: '#c7ccd4' }[status];
+    return 'width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + c + ';';
+  }
+  _labelChk(on) {
+    return 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;padding:4px 9px;border-radius:8px;transition:all .12s;border:1px solid ' +
+      (on ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (on ? 'var(--soft,#e8edfb)' : 'var(--surface,#f5f6f8)') + ';color:' + (on ? 'var(--accent,#2f63d6)' : 'var(--ink2,#6b7280)') + ';';
+  }
+
+  // ---------- breadcrumb / path ----------
+  pathTo(id, rootId) {
+    const cat = this.cat();
+    const path = [];
+    let n = cat.byId[id];
+    while (n) { path.unshift(n); if (n.id === rootId) break; n = n.parent; }
+    return path;
+  }
+
+  // ---------- visible tree rows ----------
+  clusterRows(rootNode) {
+    const rows = [];
+    const collapsed = this.state.cCollapsed;
+    const focus = this.state.focus;
+    const self = this;
+    const stack = [[rootNode, 0]];
+    while (stack.length) {
+      const [n, depth] = stack.pop();
+      const isLeaf = n.leaf;
+      const isColl = collapsed.has(n.id);
+      const sel = focus === n.id;
+      const indent = 8 + depth * 18;
+      let label;
+      if (isLeaf) { const q = self.cat().queries[n.qi] || ''; label = q.length > 60 ? q.slice(0, 60) + '\u2026' : q; }
+      else label = n.label || self.unitLabel(n);
+      rows.push({
+        id: n.id,
+        toggle: isLeaf ? '' : (isColl ? '\u25B8' : '\u25BE'),
+        toggleStyle: 'width:16px;flex-shrink:0;text-align:center;font-size:9px;color:var(--ink4,#bcc2cc);cursor:' + (isLeaf ? 'default' : 'pointer') + ';',
+        label, size: isLeaf ? '' : n.size,
+        onToggle: isLeaf ? (() => {}) : (() => self.toggleCollapse('cCollapsed', n.id)),
+        onFocus: () => self.setFocus(n.id),
+        rowStyle: 'display:flex;align-items:center;gap:6px;padding:6px 10px 6px ' + indent + 'px;border-radius:8px;cursor:pointer;font-size:' + (isLeaf ? '12px' : '12.5px') + ';font-weight:' + (isLeaf ? '500' : '700') + ';color:' + (isLeaf ? 'var(--ink2,#6b7280)' : 'var(--ink,#1f2430)') + ';transition:background .1s;' + (sel ? 'background:var(--soft,#e8edfb);' : ''),
+      });
+      if (!isLeaf && !isColl) {
+        for (let i = n.children.length - 1; i >= 0; i--) stack.push([n.children[i], depth + 1]);
+      }
+    }
+    return rows;
+  }
+
+  unitTreeRows() {
+    const { tree, rankById } = this.unitData();
+    const rows = [];
+    const collapsed = this.state.uCollapsed;
+    const sel = this.state.selUnit;
+    const self = this;
+    const stack = [[tree, 0]];
+    while (stack.length) {
+      const [x, depth] = stack.pop();
+      const indent = 8 + depth * 16;
+      if (x.unit) {
+        const n = x.node;
+        const status = self.guideStatus(x.id);
+        rows.push({
+          id: x.id, isUnit: true,
+          toggle: '', toggleStyle: 'width:14px;flex-shrink:0;',
+          rank: x.priority_rank,
+          badgeStyle: 'font-family:\'Spline Sans Mono\',monospace;font-weight:700;font-size:11px;color:var(--panel,#ffffff);background:var(--accent,#2f63d6);min-width:20px;height:20px;padding:0 5px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;',
+          label: self.unitLabel(n), size: n.size,
+          fontSize: '12.5px', weight: '700', textColor: 'var(--ink,#1f2430)',
+          statusDot: self._statusDot(status),
+          onToggle: () => {}, onClick: () => self.selectUnit(x.id),
+          rowStyle: 'display:flex;align-items:center;gap:7px;padding:7px 10px 7px ' + indent + 'px;border-radius:8px;cursor:pointer;transition:background .1s;' + (sel === x.id ? 'background:var(--soft,#e8edfb);' : ''),
+        });
+      } else {
+        const n = x.node;
+        const isColl = collapsed.has(x.id);
+        rows.push({
+          id: x.id, isUnit: false,
+          toggle: isColl ? '\u25B8' : '\u25BE',
+          toggleStyle: 'width:14px;flex-shrink:0;text-align:center;font-size:9px;color:var(--ink4,#bcc2cc);cursor:pointer;',
+          rank: '', badgeStyle: '',
+          label: n.label || self.unitLabel(n), size: n.size,
+          fontSize: '11.5px', weight: '700', textColor: 'var(--ink3,#98a0ab)',
+          statusDot: '',
+          onToggle: () => self.toggleCollapse('uCollapsed', x.id),
+          onClick: () => self.toggleCollapse('uCollapsed', x.id),
+          rowStyle: 'display:flex;align-items:center;gap:7px;padding:6px 10px 6px ' + indent + 'px;border-radius:8px;cursor:pointer;transition:background .1s;',
+        });
+        if (!isColl) {
+          for (let i = x.children.length - 1; i >= 0; i--) stack.push([x.children[i], depth + 1]);
+        }
+      }
+    }
+    return rows;
+  }
+
+  queryRows(node) {
+    const cat = this.cat();
+    const self = this;
+    return this.reprOf(node).slice(0, 40).map(qi => {
+      const l = self.getLabel(qi);
+      return {
+        qi, text: cat.queries[qi],
+        trash: l.trash, demo: l.demo,
+        trashStyle: self._labelChk(l.trash), demoStyle: self._labelChk(l.demo),
+        onTrash: (e) => self.setLabel(qi, 'trash', e.target.checked),
+        onDemo: (e) => self.setLabel(qi, 'demo', e.target.checked),
+      };
+    });
+  }
+
+  // ---------- render ----------
+  renderVals() {
+    if (this.state.loading || !this.state.catKey || !this.CATS[this.state.catKey]) {
+      return { loading: true };
+    }
+    const s = this.state;
+    const cat = this.cat();
+    const m = this.meta();
+    const T = cat.topics.length;
+    const accent = m.color;
+    const accentSoft = m.soft || this._soft(accent);
+    const warm = (this.props.background || 'Gray') === 'Warm';
+    const P = warm
+      ? { bg: '#f3efe7', panel: '#fffdfa', surface: '#fbf8f2', border: '#ece5da', track: '#f1ebe1', chip: '#f3ece1', ink: '#2a2723', ink2: '#6f685f', ink3: '#9a9389', ink4: '#c4bbad' }
+      : { bg: '#eef0f3', panel: '#ffffff', surface: '#f5f6f8', border: '#e6e8ec', track: '#edeff3', chip: '#eef0f4', ink: '#1f2430', ink2: '#6b7280', ink3: '#9aa0ab', ink4: '#c2c7d0' };
+    const out = {
+      accent, accentSoft,
+      pBg: P.bg, pPanel: P.panel, pSurface: P.surface, pBorder: P.border, pTrack: P.track, pChip: P.chip, pInk: P.ink, pInk2: P.ink2, pInk3: P.ink3, pInk4: P.ink4,
+      logoSrc: './jelly_logo4.png',
+      isGroups: s.view === 'groups', isThemes: s.view === 'themes', isUnits: s.view === 'units',
+      viewGroups: () => this.setView('groups'),
+      viewThemes: () => this.setView('themes'),
+      viewUnits: () => this.setView('units'),
+      tabGroupsStyle: this._tab(s.view === 'groups'),
+      tabThemesStyle: this._tab(s.view === 'themes'),
+      tabUnitsStyle: this._tab(s.view === 'units'),
+      downloadData: () => this.downloadData(),
+      cats: Object.keys(this.CATS).map(k => ({
+        key: k, label: k, color: this.CATMETA[k].color,
+        active: k === s.catKey, style: this._catTab(k === s.catKey, this.CATMETA[k].color),
+        onClick: () => this.pickCat(k),
+      })),
+    };
+
+    // ----- groups -----
+    const sliderMax = Math.min(12, cat.queries.length);
+    const gran = Math.min(s.gran, sliderMax);
+    const clusters = this.clustersFor(gran);
+    out.sliderMax = sliderMax; out.gran = gran; out.clusterCount = clusters.length;
+    out.granDesc = gran <= 4 ? 'A few broad groups \u2014 good for a first overview.' : (gran <= 8 ? 'A balanced number of groups.' : 'Many tight groups \u2014 good for spotting fine distinctions.');
+    out.onSlider = (e) => this.setGran(e.target.value);
+    out.clusters = clusters.map((node, ci) => {
+      const letter = String.fromCharCode(65 + (ci % 26));
+      const sel = s.selCluster === node.id;
+      return {
+        id: node.id, letter, title: this.unitLabel(node), size: node.size,
+        preview: this.reprOf(node).slice(0, 3).map(qi => ({ text: cat.queries[qi] })),
+        selected: sel,
+        onClick: () => this.selectCluster(node),
+        style: 'border:1px solid ' + (sel ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (sel ? 'var(--soft,#e8edfb)' : 'var(--panel,#ffffff)') + ';border-radius:12px;padding:13px 14px;margin-bottom:9px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#2f63d6);' : ''),
+      };
+    });
+    out.clusterSelected = !!s.selCluster;
+    out.noCluster = !s.selCluster;
+    if (s.selCluster && cat.byId[s.selCluster]) {
+      const clRoot = cat.byId[s.selCluster];
+      const focusNode = (s.focus && cat.byId[s.focus]) ? cat.byId[s.focus] : clRoot;
+      const ci = clusters.findIndex(c => c.id === s.selCluster);
+      const path = this.pathTo(focusNode.id, clRoot.id);
+      const breadcrumb = path.map((n, i) => {
+        const last = i === path.length - 1;
+        const lbl = i === 0 ? ('Group ' + String.fromCharCode(65 + (ci >= 0 ? ci : 0))) : (n.label || this.unitLabel(n));
+        return {
+          label: lbl.length > 22 ? lbl.slice(0, 22) + '\u2026' : lbl, sep: !last,
+          onClick: () => this.setFocus(n.id),
+          style: 'font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:7px;' + (last ? 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);' : 'color:var(--accent,#2f63d6);'),
+        };
+      });
+      out.gDetail = {
+        title: this.unitLabel(clRoot),
+        subtitle: clRoot.size + ' queries in this group',
+        breadcrumb,
+        themeBars: this.themeBars(focusNode),
+        treeRows: this.clusterRows(clRoot),
+        queryHeader: (focusNode.id === clRoot.id ? 'All queries' : 'Queries in this sub-group') + ' (' + focusNode.size + ')',
+        queries: this.queryRows(focusNode),
+      };
+    } else {
+      out.gDetail = { title: '', subtitle: '', breadcrumb: [], themeBars: [], treeRows: [], queryHeader: '', queries: [] };
+    }
+
+    // ----- themes -----
+    out.isCards = s.tMode === 'cards'; out.isMap = s.tMode === 'map';
+    out.modeCards = () => this.setState({ tMode: 'cards' });
+    out.modeMap = () => this.setState({ tMode: 'map' });
+    out.themeCardsTabStyle = this._tab(s.tMode === 'cards');
+    out.themeMapTabStyle = this._tab(s.tMode === 'map');
+    const prev = new Array(T).fill(0);
+    Object.values(cat.byId).forEach(n => { if (n.leaf) prev[n.topic]++; });
+    const totLeaf = cat.queries.length;
+    out.topicCards = cat.topics.map((tp, j) => ({
+      num: j + 1, label: tp.label, color: this.topicColor(j),
+      words: tp.words.slice(0, 5).map(w => ({ w })),
+      pct: prev[j] / totLeaf, pctLabel: Math.round(prev[j] / totLeaf * 100) + '%',
+      prevWidth: (prev[j] / Math.max.apply(null, prev) * 100).toFixed(0) + '%',
+      selected: s.selTopic === j,
+      onClick: () => this.selectTopic(j),
+      style: 'background:var(--panel,#ffffff);border:1px solid ' + (s.selTopic === j ? this.topicColor(j) : 'var(--border,#e3e6eb)') + ';border-radius:13px;padding:15px;cursor:pointer;transition:all .15s;' + (s.selTopic === j ? 'box-shadow:0 0 0 1px ' + this.topicColor(j) + ';' : ''),
+    }));
+    // bubbles
+    const W = 800, H = 620, maxPrev = Math.max.apply(null, prev);
+    out.bubbles = cat.topics.map((tp, j) => {
+      const frac = prev[j] / maxPrev;
+      const r = 55 + frac * 90;
+      const cx = 80 + tp.x * (W - 160);
+      const cy = 80 + tp.y * (H - 160);
+      const tint = this.topicColor(j);
+      const sel = s.selTopic === j;
+      const label = tp.label.length > 22 ? tp.label.slice(0, 20) + '\u2026' : tp.label;
+      const fs = Math.max(9, Math.min(13, r * 0.38)).toFixed(1);
+      return {
+        j, cx: cx.toFixed(0), cy: cy.toFixed(0), r: r.toFixed(0),
+        fill: this._rgba(tint, sel ? 0.32 : 0.16), stroke: tint, sw: sel ? 3 : 1.5,
+        label, pctLabel: Math.round(prev[j] / totLeaf * 100) + '%',
+        labelStyle: 'position:absolute;left:' + (cx/800*100).toFixed(2) + '%;top:' + (cy/620*100).toFixed(2) + '%;transform:translate(-50%,-50%);text-align:center;width:' + (r * 1.8).toFixed(0) + 'px;',
+        labelTextStyle: 'font-size:' + fs + 'px;font-weight:600;color:' + tint + ';line-height:1.3;overflow-wrap:break-word;',
+        onClick: () => this.selectTopic(j),
+      };
+    });
+    out.mapTransform = 'translate(' + s.mapPanX + 'px,' + s.mapPanY + 'px) scale(' + s.mapZoom + ')';
+    out.mapCursor = s._mapDrag ? 'grabbing' : 'grab';
+    out.onMapWheel = (e) => this._onMapWheel(e);
+    out.onMapDown = (e) => this._onMapDown(e);
+    out.onMapMove = (e) => this._onMapMove(e);
+    out.onMapUp = () => this._onMapUp();
+    out.stopMapDrag = (e) => e.stopPropagation();
+    out.zoomIn = () => { const { mapZoom: z, mapPanX: px, mapPanY: py } = this.state; this.setState({ mapZoom: Math.min(8, z * 1.3) }); };
+    out.zoomOut = () => { const { mapZoom: z } = this.state; this.setState({ mapZoom: Math.max(0.3, z / 1.3) }); };
+    out.resetMap = () => this._resetMap();
+    out.topicSelected = true;
+    const tj = s.selTopic;
+    const topicLeaves = [];
+    Object.values(cat.byId).forEach(n => { if (n.leaf && n.topic === tj) topicLeaves.push(n.qi); });
+    out.tDetail = {
+      num: tj + 1, label: cat.topics[tj].label,
+      words: cat.topics[tj].words.map(w => ({ w })),
+      pctLabel: Math.round(prev[tj] / totLeaf * 100) + '%',
+      queries: topicLeaves.slice(0, 8).map(qi => ({ text: cat.queries[qi] })),
+    };
+
+    // ----- units -----
+    out.isTree = s.uMode === 'tree'; out.isPriority = s.uMode === 'priority';
+    out.modeTree = () => this.setState({ uMode: 'tree' });
+    out.modePriority = () => this.setState({ uMode: 'priority' });
+    out.unitTreeTabStyle = this._tab(s.uMode === 'tree');
+    out.unitPriorityTabStyle = this._tab(s.uMode === 'priority');
+    out.unitModeHint = s.uMode === 'tree' ? 'Expand the branches to see how groups nest. Numbered cards are ready to annotate.' : 'Most urgent groups first.';
+    out.showIntro = s.showIntro;
+    out.dismissIntro = () => this.setState({ showIntro: false });
+
+    const ud = this.unitData();
+    const total = ud.units.length;
+    const written = ud.units.filter(u => this.guideStatus(u.id) === 'done').length;
+    out.unitsTotal = total; out.unitsWritten = written;
+    out.unitProgressText = written + ' of ' + total + ' done';
+    out.progressPct = (total ? (written / total * 100) : 0).toFixed(0) + '%';
+
+    out.unitTreeRows = this.unitTreeRows();
+    out.priorityList = ud.units.slice().sort((a, b) => a.priority_rank - b.priority_rank).map(u => {
+      const status = this.guideStatus(u.id);
+      const sel = s.selUnit === u.id;
+      return {
+        id: u.id, rank: u.priority_rank, label: this.unitLabel(u.node),
+        size: u.node.size, diversity: Math.round(u.node.topic_mixture * 100) + '%',
+        statusLabel: this._statusLabel(status), statusChip: this._statusChip(status),
+        selected: sel, onClick: () => this.selectUnit(u.id),
+        style: 'border:1px solid ' + (sel ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (sel ? 'var(--soft,#e8edfb)' : 'var(--panel,#ffffff)') + ';border-radius:12px;padding:12px 13px;margin-bottom:9px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#2f63d6);' : ''),
+      };
+    });
+
+    out.unitSelected = !!(s.selUnit && cat.byId[s.selUnit]);
+    out.noUnit = !out.unitSelected;
+    out.showGlossary = s.showGlossary;
+    out.toggleGlossary = () => this.setState({ showGlossary: !s.showGlossary });
+    out.glossaryToggleLabel = s.showGlossary ? 'Hide explanations' : 'What do these mean?';
+    if (out.unitSelected) {
+      const u = ud.units.find(x => x.id === s.selUnit) || { node: cat.byId[s.selUnit], priority_rank: '\u2013' };
+      const n = u.node;
+      const status = this.guideStatus(s.selUnit);
+      out.uDetail = {
+        rank: u.priority_rank, label: this.unitLabel(n), size: n.size,
+        diversity: Math.round(n.topic_mixture * 100) + '%',
+        priority: Math.round((u.priority || 0) * 100) + '%',
+        statusChip: this._statusChip(status), statusLabel: this._statusLabel(status),
+        themeBars: this.themeBars(n),
+        queries: this.queryRows(n),
+        guideline: this.guideText(s.selUnit),
+      };
+      out.onGuidelineInput = (e) => this.setGuide(s.selUnit, e.target.value, null);
+      out.suggestDraft = () => this.suggestDraft(u);
+      out.markDone = () => this.setGuide(s.selUnit, null, status !== 'done');
+      out.markDoneLabel = status === 'done' ? '\u2713 Marked ready' : 'Mark as ready';
+      out.markDoneStyle = 'border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:9px;transition:all .15s;' +
+        (status === 'done' ? 'background:var(--accent,#2f63d6);color:var(--panel,#ffffff);' : 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);');
+    } else {
+      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], guideline: '' };
+      out.onGuidelineInput = () => {}; out.suggestDraft = () => {}; out.markDone = () => {};
+      out.markDoneLabel = ''; out.markDoneStyle = 'display:none;';
+    }
+
+    out.loading = false;
+    return out;
+  }
+
+  _soft(hex) {
+    try {
+      const n = parseInt(hex.slice(1), 16);
+      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+      const mix = (c) => Math.round(c + (255 - c) * 0.87);
+      return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
+    } catch (e) { return '#e8edfb'; }
+  }
+  _rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+}
+</script>
+</body>
+</html>
