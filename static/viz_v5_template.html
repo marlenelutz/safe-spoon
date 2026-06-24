@@ -533,9 +533,57 @@ const color      = () => COLORS[currentCat] || "#4a6cf7";
 const lcolor     = () => LIGHTS[currentCat] || "#eef1ff";
 
 function gatherLeafIndices(node) {
-  if (!node.children || !node.children.length)
-    return node.id !== undefined ? [node.id] : [];
-  return node.children.flatMap(gatherLeafIndices);
+  if (node._leafArr) return node._leafArr;
+  const result = [];
+  const stack = [node];
+  while (stack.length) {
+    const n = stack.pop();
+    if (!n.children || !n.children.length) {
+      if (typeof n.id === 'number') result.push(n.id);
+    } else {
+      for (const c of n.children) stack.push(c);
+    }
+  }
+  return result;
+}
+
+// One-time O(n·K) bottom-up pass: attach _leafArr and mean_theta to every tree node.
+function attachLeafArrays(root, thetas) {
+  const K = thetas && thetas.length ? thetas[0].length : 0;
+  const order = [];
+  const stk = [root];
+  while (stk.length) {
+    const nd = stk.pop();
+    order.push(nd);
+    if (nd.children) for (const c of nd.children) stk.push(c);
+  }
+  // bottom-up
+  order.reverse().forEach(nd => {
+    const isLeaf = !nd.children || !nd.children.length;
+    if (isLeaf) {
+      nd._leafArr = typeof nd.id === 'number' ? [nd.id] : [];
+      if (K && typeof nd.id === 'number' && nd.id < thetas.length) {
+        nd._thetaSum = new Float64Array(thetas[nd.id]);
+        nd._thetaN   = 1;
+        nd.mean_theta = Array.from(thetas[nd.id]);
+      }
+    } else {
+      nd._leafArr = nd.children.flatMap(c => c._leafArr);
+      if (K) {
+        const sum = new Float64Array(K);
+        let n = 0;
+        for (const c of nd.children) {
+          if (c._thetaSum) {
+            for (let k = 0; k < K; k++) sum[k] += c._thetaSum[k];
+            n += c._thetaN;
+          }
+        }
+        nd._thetaSum  = sum;
+        nd._thetaN    = n;
+        if (n) nd.mean_theta = Array.from(sum, v => v / n);
+      }
+    }
+  });
 }
 
 // ── View switching ─────────────────────────────────────────────────────────────
@@ -742,15 +790,21 @@ function buildClusters() {
   return Object.values(groups).sort((a, b) => b.length - a.length);
 }
 
-function findClusterSubtree(node, clusterSet) {
-  const nodeIndices = new Set(gatherLeafIndices(node));
-  const intersection = [...nodeIndices].filter(i => clusterSet.has(i));
-  if (intersection.length === 0) return null;
-  if (!node.children || !node.children.length) return node;
-  for (const child of node.children) {
-    const childIndices = new Set(gatherLeafIndices(child));
-    const childInter   = [...childIndices].filter(i => clusterSet.has(i));
-    if (childInter.length === clusterSet.size) return findClusterSubtree(child, clusterSet);
+function findClusterSubtree(root, clusterSet) {
+  const rootLeaves = root._leafArr || gatherLeafIndices(root);
+  if (!rootLeaves.some(i => clusterSet.has(i))) return null;
+  let node = root;
+  while (node.children && node.children.length) {
+    let next = null;
+    for (const child of node.children) {
+      const cl = child._leafArr || gatherLeafIndices(child);
+      if (cl.filter(i => clusterSet.has(i)).length === clusterSet.size) {
+        next = child;
+        break;
+      }
+    }
+    if (!next) break;
+    node = next;
   }
   return node;
 }
@@ -826,10 +880,17 @@ function breadcrumbClick(i) {
   const target = _breadcrumb[i];
   renderBreadcrumb();
   renderTreeFromNode(target.node, target.label, true);
-  showDetail(target.node, gatherLeafIndices(target.node), `Cluster ${target.label}`);
+  showDetail(target.node, target.node._leafArr || gatherLeafIndices(target.node), `Cluster ${target.label}`);
 }
 
 function renderTreeView(subtreeRoot, ci, totalCount) {
+  if (!subtreeRoot) {
+    document.getElementById("tree-header-hint").textContent = `· Cluster ${clusterLetter(ci)}`;
+    document.getElementById("tree-breadcrumb").innerHTML = "";
+    document.getElementById("tree-view").innerHTML =
+      `<div style="padding:16px;font-size:12px;color:#ccc">No hierarchy data — please regenerate the data file.</div>`;
+    return;
+  }
   const rootLabel = clusterLetter(ci);
   _breadcrumb = [{ nodeId: subtreeRoot.id, label: rootLabel, node: subtreeRoot }];
   document.getElementById("tree-header-hint").textContent =
@@ -839,67 +900,73 @@ function renderTreeView(subtreeRoot, ci, totalCount) {
   window._currentSubtree = subtreeRoot;
 }
 
+// Render a single tree row (no children HTML — lazy).
+function _makeTreeRowHtml(node, localIndex, depth) {
+  const isLeaf   = !node.children || !node.children.length;
+  const nodeId   = String(node.id);
+  const col = color(), lc = lcolor();
+  const indentPx = depth * 18 + 10;
+  const leafArr  = node._leafArr || gatherLeafIndices(node);
+  const size     = leafArr.length;
+  window._nodeMap[nodeId] = { node, localIndex, depth };
+
+  const toggleIcon  = isLeaf ? "·" : "▸";
+  const toggleClass = isLeaf ? "leaf" : "";
+  const badgeHtml   = depth === 0 ? "" :
+    `<span class="local-badge" style="background:${isLeaf ? lc : col};color:${isLeaf ? col : "white"}">${localIndex}</span>`;
+
+  let labelText;
+  if (isLeaf) {
+    const q = queries[node.id] || node.name || "query";
+    labelText = q.length > 52 ? q.slice(0, 52) + "..." : q;
+  } else {
+    const reprid = node.repr?.[0] ?? leafArr[0];
+    const sample = reprid !== undefined ? (queries[reprid] || "").slice(0, 40) : "";
+    labelText = sample ? sample + "..." : `${size} queries`;
+  }
+
+  const childrenSlot = isLeaf ? "" :
+    `<div class="tree-children collapsed" id="children_${nodeId}"></div>`;
+
+  return `<div class="tree-node">
+    <div class="tree-row" style="padding-left:${indentPx}px"
+      data-node-id="${nodeId}" onclick="handleTreeClick(event,'${nodeId}')">
+      <span class="tree-toggle ${toggleClass}">${toggleIcon}</span>
+      ${badgeHtml}
+      <span class="tree-label ${isLeaf ? "" : "inner"}">${labelText}</span>
+      <span class="tree-size">${isLeaf ? "" : size}</span>
+    </div>
+    ${childrenSlot}
+  </div>`;
+}
+
+// Lazily populate a node's children container (called on first expand).
+function _expandChildren(nodeId) {
+  const childEl = document.getElementById(`children_${nodeId}`);
+  if (!childEl || childEl.dataset.rendered) return;
+  const { node, depth } = window._nodeMap[nodeId] || {};
+  if (!node || !node.children) return;
+  const sorted = [...node.children].sort((a, b) => (b.size || 0) - (a.size || 0));
+  childEl.innerHTML = sorted.map((c, i) => _makeTreeRowHtml(c, i + 1, depth + 1)).join('');
+  childEl.dataset.rendered = '1';
+}
+
 function renderTreeFromNode(rootNode, rootLabel, isTopLevel) {
   if (!rootNode) {
     document.getElementById("tree-view").innerHTML =
       `<div style="padding:16px;font-size:12px;color:#ccc">No hierarchy available.</div>`;
     return;
   }
-  const col = color(), lc = lcolor();
   window._nodeMap = {};
-
-  function renderNode(node, localIndex, depth) {
-    const isLeaf   = !node.children || !node.children.length;
-    const nodeId   = node.id || `node_${depth}_${localIndex}`;
-    const indentPx = depth * 18 + 10;
-    const idList  = gatherLeafIndices(node);
-    const size     = idList.length;
-    window._nodeMap[nodeId] = { node, localIndex };
-
-    const toggleIcon  = isLeaf ? "·" : "▸";
-    const toggleClass = isLeaf ? "leaf" : "";
-    const badgeHtml   = depth === 0 ? "" :
-      `<span class="local-badge" style="background:${isLeaf ? lc : col};color:${isLeaf ? col : "white"}">${localIndex}</span>`;
-
-    let labelText = "";
-    if (isLeaf) {
-      const q = queries[node.id] || node.name || "query";
-      labelText = q.length > 52 ? q.slice(0, 52) + "..." : q;
-    } else {
-      const reprid = node.repr?.[0] ?? idList[0];
-      const sample  = reprid !== undefined ? (queries[reprid] || "").slice(0, 40) : "";
-      labelText     = sample ? sample + "..." : `${size} queries`;
-    }
-
-    const children = isLeaf ? [] : [...node.children]
-      .sort((a, b) => gatherLeafIndices(b).length - gatherLeafIndices(a).length);
-    const childrenHtml = children.map((c, i) => renderNode(c, i + 1, depth + 1)).join("");
-
-    return `
-      <div class="tree-node">
-        <div class="tree-row" style="padding-left:${indentPx}px"
-          data-node-id="${nodeId}"
-          onclick="handleTreeClick(event,'${nodeId}')">
-          <span class="tree-toggle ${toggleClass}">${toggleIcon}</span>
-          ${badgeHtml}
-          <span class="tree-label ${isLeaf ? "" : "inner"}">${labelText}</span>
-          <span class="tree-size">${isLeaf ? "" : size}</span>
-        </div>
-        <div class="tree-children collapsed" id="children_${nodeId}">
-          ${childrenHtml}
-        </div>
-      </div>`;
-  }
-
-  document.getElementById("tree-view").innerHTML = renderNode(rootNode, 0, 0);
-  const rootRow = document.querySelector("[data-node-id]");
-  if (rootRow) {
-    const rootId  = rootRow.dataset.nodeId;
-    const childEl = document.getElementById(`children_${rootId}`);
-    if (childEl) childEl.classList.remove("collapsed");
-    const toggle  = rootRow.querySelector(".tree-toggle");
-    if (toggle && toggle.textContent === "▸") toggle.textContent = "▾";
-  }
+  document.getElementById("tree-view").innerHTML = _makeTreeRowHtml(rootNode, 0, 0);
+  // Auto-expand root
+  const rootId  = String(rootNode.id);
+  _expandChildren(rootId);
+  const childEl = document.getElementById(`children_${rootId}`);
+  if (childEl) childEl.classList.remove("collapsed");
+  const rootRow = document.querySelector(`[data-node-id="${rootId}"]`);
+  const toggle  = rootRow?.querySelector(".tree-toggle");
+  if (toggle && toggle.textContent === "▸") toggle.textContent = "▾";
 }
 
 function handleTreeClick(event, nodeId) {
@@ -913,10 +980,11 @@ function handleTreeClick(event, nodeId) {
     document.querySelectorAll(".tree-row").forEach(r => r.classList.remove("selected"));
     document.querySelector(`[data-node-id="${nodeId}"]`)?.classList.add("selected");
     const q = queries[node.id] || node.name || "Query";
-    showDetail(node, [node.id], q.slice(0, 70));
+    showDetail(node, node._leafArr || [node.id], q.slice(0, 70));
     return;
   }
 
+  // Drill down: re-render tree from this node as root (lazy — O(1) DOM ops)
   const parentLabel = _breadcrumb[_breadcrumb.length - 1]?.label || "";
   const newLabel    = localIndex === 0 ? parentLabel : `${parentLabel}.${localIndex}`;
   if (localIndex !== 0) {
@@ -924,7 +992,7 @@ function handleTreeClick(event, nodeId) {
     renderBreadcrumb();
   }
   renderTreeFromNode(node, newLabel, false);
-  showDetail(node, gatherLeafIndices(node), `Cluster ${newLabel}`);
+  showDetail(node, node._leafArr || gatherLeafIndices(node), `Cluster ${newLabel}`);
 }
 
 // ── Detail panel ───────────────────────────────────────────────────────────────
@@ -955,9 +1023,9 @@ function topicBarHtml(meanArr, col) {
   return h + '</div>';
 }
 
-async function showDetail(node, idList, title) {
+function showDetail(node, idList, title) {
   const col = color(), lc = lcolor();
-  const total    = idList.length;
+  const total   = idList.length;
   const reprids = (node && node.repr) ? node.repr : idList.slice(0, n_repr || 5);
   let h = `<div class="detail-title">${title}</div>`;
   h += `<div class="stats-row">
@@ -971,9 +1039,11 @@ async function showDetail(node, idList, title) {
       <span class="sp-label">dissimilarity</span>
     </div>`;
   h += `</div>`;
-  h += `<div id="topic-dist-slot"><div class="section-title">Topic distribution</div>
-    <div style="font-size:11px;color:#bbb;padding:4px 0">Loading...</div></div>`;
-  // Use a Set so repr membership check works regardless of index numeric type
+
+  // Use pre-computed mean_theta (attached by attachLeafArrays) — no network call needed
+  const mean = node && node.mean_theta ? node.mean_theta : null;
+  h += topicBarHtml(mean, col) || '';
+
   const reprSet = new Set(reprids.map(String));
   if (reprids.length) {
     h += `<div class="section-title">Most representative</div>`;
@@ -981,7 +1051,6 @@ async function showDetail(node, idList, title) {
       h += queryWithLabelsHtml(currentCat, gi, queries[gi] || "", true, rank, col);
     });
   }
-  // Show ALL queries sorted repr-first so the most representative always appears at the top
   const sortedAll = [
     ...reprids.filter(i => idList.some(j => String(j) === String(i))),
     ...idList.filter(i => !reprSet.has(String(i))),
@@ -997,19 +1066,6 @@ async function showDetail(node, idList, title) {
       h += `<div class="more-label">... ${sortedAll.length - 50} more queries</div>`;
   }
   document.getElementById("detail-body").innerHTML = h;
-
-  try {
-    const { mean } = await fetch('/api/topic_dist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cat: currentCat, indices: idList }),
-    }).then(r => r.json());
-    const slot = document.getElementById("topic-dist-slot");
-    if (slot) slot.outerHTML = topicBarHtml(mean, col) || '';
-  } catch(e) {
-    const slot = document.getElementById("topic-dist-slot");
-    if (slot) slot.remove();
-  }
 }
 
 // ── Annotation helpers ─────────────────────────────────────────────────────────
@@ -1095,18 +1151,26 @@ async function selectCategory(cat) {
   _unitsById      = {};
   expandedNodes   = new Set();
 
-  if (!data_by_category[cat]) {
+  if (!data_by_category[cat] || !trees_by_category[cat]) {
     document.getElementById("cluster-badge").textContent = "Loading...";
+    const needCat  = !data_by_category[cat];
+    const needTree = !trees_by_category[cat];
     const [catInfo, treeInfo] = await Promise.all([
-      fetch(`/api/category/${encodeURIComponent(cat)}`).then(r => r.json()),
-      fetch(`/api/tree/${encodeURIComponent(cat)}`).then(r => r.json()),
+      needCat  ? fetch(`/api/category/${encodeURIComponent(cat)}`).then(r => r.json())
+               : Promise.resolve(data_by_category[cat]),
+      needTree ? fetch(`/api/tree/${encodeURIComponent(cat)}`).then(r => r.json())
+               : Promise.resolve(null),
     ]);
-    data_by_category[cat] = catInfo;
-    const map = Object.fromEntries(treeInfo.nodes.map(n => [n.id, { ...n, children: [] }]));
-    treeInfo.nodes.forEach(n => (n.children_ids || []).forEach(cid => {
-      if (map[cid]) map[n.id].children.push(map[cid]);
-    }));
-    trees_by_category[cat] = { ...treeInfo, tree: map[treeInfo.root_id] };
+    if (needCat)  data_by_category[cat] = catInfo;
+    if (needTree) {
+      const map = Object.fromEntries(treeInfo.nodes.map(n => [n.id, { ...n, children: [] }]));
+      treeInfo.nodes.forEach(n => (n.children_ids || []).forEach(cid => {
+        if (map[cid]) map[n.id].children.push(map[cid]);
+      }));
+      const treeRoot = map[treeInfo.root_id];
+      attachLeafArrays(treeRoot, data_by_category[cat].thetas || []);
+      trees_by_category[cat] = { ...treeInfo, tree: treeRoot };
+    }
   }
 
   const info   = data_by_category[cat] || {};
@@ -1177,35 +1241,33 @@ async function loadUnitsForCat(cat) {
   document.getElementById("units-badge").textContent = `${n_units} units`;
   document.getElementById("units-badge").style.background = lc;
   document.getElementById("units-badge").style.color = col;
-  if (!unit_tree) {
+  // Collect unit nodes directly from the flat response — avoids deep recursion on chain-like trees
+  if (ut_raw && ut_raw.nodes) {
+    ut_raw.nodes.filter(n => n.is_unit).forEach(u => { _unitsById[u.node_id] = u; });
+  }
+  const sortedUnits = Object.values(_unitsById).sort((a, b) => a.priority_rank - b.priority_rank);
+  if (!sortedUnits.length) {
     document.getElementById("units-list").innerHTML =
       '<div style="padding:16px;font-size:12px;color:#ccc">No data available.</div>';
     return;
   }
-  // Collect all unit nodes into _unitsById for O(1) lookup on click
-  function collectUnits(node) {
-    if (node.is_unit) { _unitsById[node.node_id] = node; }
-    else { (node.children || []).forEach(collectUnits); }
-  }
-  collectUnits(unit_tree);
-  document.getElementById("units-list").innerHTML = renderUnitTreeHtml(unit_tree, 0);
+  document.getElementById("units-list").innerHTML = renderUnitsFlatList(sortedUnits);
 }
 
 function safeDomId(nodeId) {
   return nodeId.replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-function renderUnitTreeHtml(node, depth) {
+function renderUnitsFlatList(units) {
   const col = color(), lc = lcolor();
-  const indentPx = depth * 18 + 8;
-  if (node.is_unit) {
+  return units.map(node => {
     const topicLabel = (topic_labels || [])[node.dominant_topic] || `Topic ${node.dominant_topic + 1}`;
     const isSelected = selectedUnitId === node.node_id;
     const sid = safeDomId(node.node_id);
     const displayLabel = node.label || topicLabel;
     return `<div class="utree-unit-row${isSelected ? " selected" : ""}"
       id="urow_${sid}"
-      style="padding-left:${indentPx}px;--item-color:${col};--item-light:${lc}"
+      style="--item-color:${col};--item-light:${lc}"
       onclick="selectUnitById('${node.node_id.replace(/'/g, "\\'")}')">
       <span class="unit-priority-badge" style="background:${col}">#${node.priority_rank}</span>
       <div class="utree-unit-info">
@@ -1216,18 +1278,7 @@ function renderUnitTreeHtml(node, depth) {
         </div>
       </div>
     </div>`;
-  }
-  // Branching node
-  const sid = safeDomId(node.node_id);
-  const childrenHtml = (node.children || []).map(c => renderUnitTreeHtml(c, depth + 1)).join('');
-  return `<div>
-    <div class="utree-branch-row" style="padding-left:${indentPx}px"
-      onclick="toggleUnitBranch('${sid}')">
-      <span class="tree-toggle" id="utog_${sid}">▾</span>
-      <span class="utree-branch-label">${node.size} queries · mix ${(node.topic_mixture * 100).toFixed(0)}%</span>
-    </div>
-    <div class="utree-children" id="ubr_${sid}">${childrenHtml}</div>
-  </div>`;
+  }).join('');
 }
 
 function toggleUnitBranch(sid) {

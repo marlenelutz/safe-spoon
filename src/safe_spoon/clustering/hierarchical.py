@@ -25,7 +25,7 @@ def most_representative(
     max_medoid: int = 200,
     valid_mask: np.ndarray = None,
 ) -> List[int]:
-    """Return the indices of the n-most representative items among indices. If cluster is small, uses exact medoid search; otherwise uses centroid-based approximation.
+    """Return the indices of the n-most representative items among indices. If cluster is small, uses exact medoid search otherwise uses centroid-based approximation.
 
     If a valid_mask is supplied, only items with valid_mask[i] == True are considered; if no valid items remain, falls back to the full set.
     """

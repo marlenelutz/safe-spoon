@@ -1,6 +1,6 @@
 # annotation units
-min_size: 10
-max_purity: 0.70   
+min_size: 15
+max_purity: 0.55   
 
 priority_weights:
   topic_mixture:  0.5

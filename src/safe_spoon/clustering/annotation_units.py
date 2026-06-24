@@ -78,10 +78,15 @@ def build_unit_tree(
 ) -> Tuple[Optional[dict], int]:
     """Return a pruned annotation-unit tree (two-pass iterative) and unit count.
 
-    Stopping rule: a node becomes a unit when any of the following conditions hold:
-      - size <= min_size * 2 (small enough, i.e., not worth splitting further)
+    Stopping rule (top-down, Pass 1): a node becomes a unit when any of the
+    following hold:
+      - size <= min_size  (small enough — literal, no hidden multiplier)
       - dominant_weight >= max_purity  (thematically pure)
       - it is a leaf (no children)
+
+    Pass 1b (bottom-up promotion): any unit whose size < min_size is suppressed
+    and its parent is promoted to a unit instead, so every emitted unit contains
+    at least min_size queries.
 
     Otherwise both children are recursed into.
     """
@@ -105,7 +110,7 @@ def build_unit_tree(
             merge_balance = min(ls, rs) / max(ls, rs)
         else:
             merge_balance = 1.0
-        is_unit = size <= min_size * 2 or dominant_weight >= max_purity or not cids
+        is_unit = size <= min_size or dominant_weight >= max_purity or not cids
         classified[nid] = {
             "is_unit": is_unit,
             "size": size,
@@ -121,6 +126,36 @@ def build_unit_tree(
         if not is_unit:
             visit.extend(cids)
 
+    # Pass 1b: promote tiny units upward.
+    # Any node classified as a unit solely because size < min_size is suppressed
+    # and its parent is promoted to a unit instead, so every emitted unit
+    # contains at least min_size queries.  We build parent pointers from the
+    # already-classified set (children of unit nodes were never classified, so
+    # we must not dereference their cids), then sweep bottom-up.
+    parent_of: dict = {}
+    topo_order: list = []
+    seen_tp: set = set()
+    tp_stack = [root_id]
+    while tp_stack:
+        nid = tp_stack.pop()
+        if nid in seen_tp:
+            continue
+        seen_tp.add(nid)
+        topo_order.append(nid)
+        nc = classified[nid]
+        if not nc["is_unit"]:          # only branch nodes have classified children
+            for cid in nc["cids"]:
+                parent_of[cid] = nid
+                tp_stack.append(cid)
+
+    for nid in reversed(topo_order):  # bottom-up
+        nc = classified[nid]
+        if nc["is_unit"] and nc["size"] < min_size:
+            pid = parent_of.get(nid)
+            if pid is not None:
+                classified[pid]["is_unit"] = True   # parent absorbs this tiny node
+                classified[nid]["is_unit"] = False  # suppress the tiny unit
+
     # Pass 2: build tree bottom-up (post-order)
     built: dict = {}
     units: list = []
@@ -133,7 +168,7 @@ def build_unit_tree(
                 label = make_unit_label(nc["mean_theta"], topic_labels, topic_keys)
                 u = {
                     "is_unit": True,
-                    "node_id": nid,
+                    "node_id": str(nid),
                     "size": nc["size"],
                     "dist": nc["dist"],
                     "label": label,
@@ -150,7 +185,7 @@ def build_unit_tree(
         elif done:
             built[nid] = {
                 "is_unit": False,
-                "node_id": nid,
+                "node_id": str(nid),
                 "size": nc["size"],
                 "dist": nc["dist"],
                 "dominant_topic": nc["dominant_topic"],
