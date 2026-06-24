@@ -1155,8 +1155,17 @@ async function loadUnitsForCat(cat) {
     topic_keys   = catInfo.topic_keys   || null;
     topic_labels = catInfo.topic_labels || null;
   }
-  const { unit_tree, n_units, topic_keys: tk, topic_labels: tl, config } =
+  const { unit_tree: ut_raw, n_units, topic_keys: tk, topic_labels: tl, config } =
     await fetch(`/api/annotation_units/${encodeURIComponent(cat)}`).then(r => r.json());
+  // Reconstruct nested tree from flat {nodes, root_id} to avoid deep-recursion issues
+  let unit_tree = null;
+  if (ut_raw && ut_raw.nodes) {
+    const map = Object.fromEntries(ut_raw.nodes.map(n => [n.node_id, { ...n, children: [] }]));
+    ut_raw.nodes.forEach(n => (n.children_ids || []).forEach(cid => {
+      if (map[cid]) map[n.node_id].children.push(map[cid]);
+    }));
+    unit_tree = map[ut_raw.root_id] || null;
+  }
   _unitTree  = unit_tree;
   _unitsById = {};
   if (tk && tk.length && !topic_keys) { topic_keys = tk; topic_labels = tl; }

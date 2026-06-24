@@ -476,9 +476,14 @@ class TMmodel(object):
                 self._lemmas = json.loads(path.read_text(encoding="utf-8"))
 
     def _compute_s3(self):
-        """Compute S3 score matrix (n_docs x n_topics): mean beta weight of each
-        document's lemmas under each topic. Uses only vocab words present in betas.
-        Falls back gracefully to None if lemmas or vocab dicts are unavailable.
+        """Compute S3 score matrix (n_docs x n_topics).
+
+        Scores how well each document represents each topic using two ideas:
+        - Topic specificity: words exclusive to a topic score higher than words
+          spread evenly across all topics (beta[k,w] / sum_j beta[j,w]).
+        - Lexical diversity: a document with many distinct topic words scores
+          higher than one that repeats the same word many times (unique tokens,
+          log-scaled coverage bonus).
         """
         self._load_lemmas()
         self._load_betas()
@@ -487,12 +492,19 @@ class TMmodel(object):
             return
         n_docs = len(self._lemmas)
         n_topics = self._betas.shape[0]
+
+        # specificity[k, w] = how exclusively word w belongs to topic k
+        eps = 1e-10
+        specificity = self._betas / (self._betas.sum(axis=0, keepdims=True) + eps)
+
         S3 = np.zeros((n_docs, n_topics), dtype=np.float32)
         for doc_idx, tokens in enumerate(self._lemmas):
-            wd_ids = [self._vocab_w2id[w] for w in tokens if w in self._vocab_w2id]
+            # unique words: each word contributes once regardless of repetitions
+            wd_ids = [self._vocab_w2id[w] for w in set(tokens) if w in self._vocab_w2id]
             if not wd_ids:
                 continue
-            S3[doc_idx] = self._betas[:, wd_ids].mean(axis=1)
+            # mean specificity × log-scaled diversity bonus
+            S3[doc_idx] = specificity[:, wd_ids].mean(axis=1) * np.log1p(len(wd_ids))
         self._s3 = sparse.csr_matrix(S3)
 
     def _largest_indices(self, ary, n):
@@ -545,131 +557,57 @@ class TMmodel(object):
     ):
         np.random.seed(seed)
         aux = mat.toarray()
-        n_docs, n_topics = aux.shape
 
         self._load_doc_ids()
         self._build_corpus_lookup()
-
         if self._s3 is None:
             self._compute_s3()
         s3 = self._s3.toarray() if self._s3 is not None else None
 
-        # Build a mask of documents whose length falls within the given quantile range.
-        valid_mask = np.ones(n_docs, dtype=bool)
-        if length_quantile_bounds is not None:
-            if self._doc_ids is not None and self._corpus_lookup is not None:
-                doc_lengths = np.array([
-                    len(str(self._corpus_lookup.get(doc_id, "")).split())
-                    for doc_id in self._doc_ids
-                ])
-                lo = np.quantile(doc_lengths, length_quantile_bounds[0])
-                hi = np.quantile(doc_lengths, length_quantile_bounds[1])
-                valid_mask = (doc_lengths >= lo) & (doc_lengths <= hi)
-            elif (
-                self._df_corpus_train is not None
-                and "text" in self._df_corpus_train.columns
-            ):
-                doc_lengths = (
-                    self._df_corpus_train["text"]
-                    .apply(lambda x: len(str(x).split()))
-                    .values
-                )
-                lo = np.quantile(doc_lengths, length_quantile_bounds[0])
-                hi = np.quantile(doc_lengths, length_quantile_bounds[1])
-                valid_mask = (doc_lengths >= lo) & (doc_lengths <= hi)
+        # Build a flat query list in row order so top_docs_per_topic can filter by length
+        if self._doc_ids is not None and self._corpus_lookup is not None:
+            queries = [str(self._corpus_lookup.get(did, "")) for did in self._doc_ids]
+        elif self._df_corpus_train is not None and "text" in self._df_corpus_train.columns:
+            queries = self._df_corpus_train["text"].fillna("").astype(str).tolist()
+        else:
+            queries = ["x"] * aux.shape[0]
+
+        chosen_per_topic = top_docs_per_topic(
+            aux, queries,
+            topn=topn,
+            length_quantile_bounds=length_quantile_bounds,
+            s3=s3,
+            poly_degree=poly_degree,
+            smoothing_window=smoothing_window,
+        )
 
         most_representative_docs = []
-
-        for k in range(n_topics):
-            col = aux[:, k]
-
-            # Elbow detection
-            all_values = np.sort(col.flatten())
-            step = max(1, int(np.round(len(all_values) / 1000)))
-            x_values = all_values[::step]
-            y_values = (100 / len(all_values)) * np.arange(len(all_values))[::step]
-            y_smooth = uniform_filter1d(y_values, size=smoothing_window)
-
-            elbow = None
-            try:
-                kneedle = KneeLocator(
-                    x_values,
-                    y_smooth,
-                    curve="convex",
-                    direction="increasing",
-                    interp_method="polynomial",
-                    polynomial_degree=poly_degree,
-                )
-                elbow = kneedle.elbow
-            except Exception as e:
-                self._logger.warning(f"Elbow detection failed for topic {k}: {e}")
-
-            # Candidates = above elbow threshold AND within length bounds
-            if elbow is not None:
-                above_elbow = col >= elbow
-                candidate_id = np.where(above_elbow & valid_mask)[0]
-                if len(candidate_id) == 0:
-                    # Relax length filter but keep elbow threshold
-                    self._logger.warning(
-                        f"Topic {k}: no length-valid docs above elbow; relaxing length filter."
-                    )
-                    candidate_id = np.where(above_elbow)[0]
-            else:
-                self._logger.warning(
-                    f"Topic {k}: no elbow found; falling back to length-filtered docs."
-                )
-                candidate_id = np.where(valid_mask)[0]
-
-            if len(candidate_id) == 0:
-                candidate_id = np.arange(n_docs)
-
-            # Score candidates: use S3 (lexical evidence) when available, theta otherwise
-            if s3 is not None:
-                scores = s3[candidate_id, k]
-            else:
-                scores = col[candidate_id]
-            candidate_id = candidate_id[np.argsort(scores)[::-1]]
-
-            # Take the deterministic top-N by score
-            if topn is None:
-                chosen = candidate_id.tolist()
-            else:
-                chosen = candidate_id[:min(topn, len(candidate_id))].tolist()
-
+        for k, chosen in enumerate(chosen_per_topic):
             if self._doc_ids is not None:
-                if get_text:
-                    reps = [
-                        (
-                            self._doc_ids[doc],
-                            self._corpus_lookup.get(self._doc_ids[doc], "") if self._corpus_lookup else "",
-                            aux[doc, k],
-                        )
-                        for doc in chosen
-                    ]
-                else:
-                    reps = [(self._doc_ids[doc], "", aux[doc, k]) for doc in chosen]
+                reps = [
+                    (
+                        self._doc_ids[doc],
+                        (self._corpus_lookup.get(self._doc_ids[doc], "") if self._corpus_lookup else "") if get_text else "",
+                        aux[doc, k],
+                    )
+                    for doc in chosen
+                ]
             elif self._df_corpus_train is not None:
-                if get_text:
-                    reps = [
-                        (
-                            self._df_corpus_train.iloc[doc].id,
-                            self._df_corpus_train.iloc[doc].text,
-                            aux[doc, k],
-                        )
-                        for doc in chosen
-                    ]
-                else:
-                    reps = [
-                        (self._df_corpus_train.iloc[doc].id, "", aux[doc, k])
-                        for doc in chosen
-                    ]
+                reps = [
+                    (
+                        self._df_corpus_train.iloc[doc].id,
+                        self._df_corpus_train.iloc[doc].text if get_text else "",
+                        aux[doc, k],
+                    )
+                    for doc in chosen
+                ]
             else:
                 reps = [(doc, "", aux[doc, k]) for doc in chosen]
             most_representative_docs.append(reps)
 
         self._most_representative_docs = most_representative_docs
 
-    def generate_topic_outputs(self, task: str = "label", topn: int = 3, max_tokens: int = None, batch_size: int = None, max_retries: int = 5, prompt_path: Optional[str] = None):
+    def generate_topic_outputs(self, task: str = "label", topn: int = 10, max_tokens: int = None, batch_size: int = None, max_retries: int = 5, prompt_path: Optional[str] = None):
         """Generate LLM-based labels or summaries for all topics using parallel batch processing."""
         if task not in {"label", "summary"}:
             raise ValueError(f"Invalid task: {task}. Use 'label' or 'summary'.")
@@ -702,6 +640,7 @@ class TMmodel(object):
                 docs=docs,
             )
             prompts.append((tpc_id, prompt_filled))
+                    
         def _run_prompt(args):
             tpc_id, prompt_filled = args
             output_text = None
@@ -1074,41 +1013,96 @@ def top_docs_per_topic(
     queries: List[str],
     topn: int = 10,
     length_quantile_bounds: tuple = (0.10, 0.90),
+    s3: Optional[np.ndarray] = None,
+    poly_degree: int = 3,
+    smoothing_window: int = 5,
 ) -> List[List[int]]:
     """Return the top-*topn* document indices per topic for a category subset.
+
+    Uses the same scoring logic as TMmodel.get_most_representative_per_tpc:
+    elbow detection on theta to gate candidates, then combined S3+theta scoring
+    (when *s3* is supplied) or pure theta (fallback). Length quantile filtering
+    is applied before elbow gating.
 
     Parameters
     ----------
     thetas:
-        Document-topic matrix for the category, shape (n_docs, n_topics).
-        Plain numpy array (not sparse).
+        Document-topic matrix, shape (n_docs, n_topics). Plain numpy array.
     queries:
-        Raw query strings for the same documents (length must equal n_docs).
+        Raw query strings (same length as n_docs).
     topn:
         Maximum number of document indices to return per topic.
     length_quantile_bounds:
         (lo, hi) quantiles used to exclude very short / very long queries.
-        Documents outside this range are skipped; falls back to all docs if
-        no candidates survive.
+    s3:
+        Optional S3 score matrix, shape (n_docs, n_topics). When provided,
+        scoring is 0.5*S3_norm + 0.5*theta_norm; otherwise pure theta.
+    poly_degree:
+        Polynomial degree for KneeLocator interpolation.
+    smoothing_window:
+        Smoothing window size for uniform_filter1d in elbow detection.
 
     Returns
     -------
     List of length n_topics; each element is a list of local doc indices
-    (into *thetas* / *queries*) sorted by descending theta for that topic.
+    sorted by descending score.
     """
+    n_docs, n_topics = thetas.shape
+
+    # Build length-validity mask
     word_counts = np.array([len(q.split()) for q in queries])
     non_empty = np.array([bool(q.strip()) for q in queries])
-    lo, hi = np.quantile(word_counts[non_empty] if non_empty.any() else word_counts,
-                         list(length_quantile_bounds))
-    valid = np.where(non_empty & (word_counts >= lo) & (word_counts <= hi))[0]
-    if len(valid) == 0:
-        valid = np.where(non_empty)[0]
-    if len(valid) == 0:
-        valid = np.arange(len(queries))
+    base = word_counts[non_empty] if non_empty.any() else word_counts
+    lo, hi = np.quantile(base, list(length_quantile_bounds))
+    valid_mask = non_empty & (word_counts >= lo) & (word_counts <= hi)
+    if not valid_mask.any():
+        valid_mask = non_empty.copy()
+    if not valid_mask.any():
+        valid_mask = np.ones(n_docs, dtype=bool)
 
     result = []
-    for j in range(thetas.shape[1]):
-        col = thetas[valid, j]
-        order = valid[col.argsort()[::-1][:topn]]
-        result.append(order.tolist())
+    eps = 1e-10
+    for k in range(n_topics):
+        col = thetas[:, k]
+
+        # Elbow detection on the full theta distribution
+        all_values = np.sort(col)
+        step = max(1, int(np.round(len(all_values) / 1000)))
+        x_vals = all_values[::step]
+        y_vals = (100 / len(all_values)) * np.arange(len(all_values))[::step]
+        y_smooth = uniform_filter1d(y_vals, size=smoothing_window)
+
+        elbow = None
+        try:
+            kneedle = KneeLocator(
+                x_vals, y_smooth,
+                curve="convex", direction="increasing",
+                interp_method="polynomial", polynomial_degree=poly_degree,
+            )
+            elbow = kneedle.elbow
+        except Exception:
+            pass
+
+        if elbow is not None:
+            candidate_id = np.where((col >= elbow) & valid_mask)[0]
+            if len(candidate_id) == 0:
+                candidate_id = np.where(col >= elbow)[0]
+        else:
+            candidate_id = np.where(valid_mask)[0]
+
+        if len(candidate_id) == 0:
+            candidate_id = np.arange(n_docs)
+
+        # Score: combined S3+theta (normalized) when S3 is available
+        if s3 is not None:
+            s3_col = s3[:, k]
+            s3_norm = (s3_col - s3_col.min()) / (s3_col.max() - s3_col.min() + eps)
+            theta_norm = (col - col.min()) / (col.max() - col.min() + eps)
+            combined = 0.5 * s3_norm + 0.5 * theta_norm
+            scores = combined[candidate_id]
+        else:
+            scores = col[candidate_id]
+
+        candidate_id = candidate_id[np.argsort(scores)[::-1]]
+        result.append(candidate_id[:topn].tolist())
     return result

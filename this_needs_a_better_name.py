@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -36,8 +37,8 @@ OUTPUT_JSON = "data/output/viz_v5_data.json"
 #CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
 CATEGORIES = ['Health']
 
-RETRAIN = True
-OPTIMIZE = True
+RETRAIN = False
+OPTIMIZE = False
 OPTIMIZE_RANGE = range(10, 51, 5)
 
 LLM_PROVIDER = "openai"
@@ -59,8 +60,7 @@ if __name__ == "__main__":
     categories = [c for c in CATEGORIES if c in all_categories] if CATEGORIES else all_categories
     log.info("Loaded %d queries * %d categories: %s", len(queries), len(categories), categories)
 
-    log.info("Initialising spaCy preprocessor (model=en_core_web_lg)")
-    preprocessor = SimpleTMPreprocessor(spacy_model="en_core_web_lg", min_df=10, max_df=0.6)
+
 
     data_by_category = {}
     trees_by_category = {}
@@ -74,11 +74,16 @@ if __name__ == "__main__":
         if n < 2:
             log.warning("  Skipping '%s' — fewer than 2 queries", cat)
             continue
+        
+        log.info("Initialising spaCy preprocessor (model=en_core_web_lg)")
+        preprocessor = SimpleTMPreprocessor(spacy_model="en_core_web_lg", min_df=10, max_df=0.6, stopword_files=[str(Path(__file__).parent / "static" / "stops" / f"{cat}.txt")])
 
         model_dir = f"./data/models/{cat.replace(' ', '_')}"
+        opt_base = Path(f"./data/models/{cat.replace(' ', '_')}_optimize")
+        opt_results_path = opt_base / "optimization_results.json"
+        selected_model_info = {}
 
         if OPTIMIZE:
-            opt_base = f"./data/models/{cat.replace(' ', '_')}_optimize"
             log.info("  [%s] Optimising num_topics over %s -> %s", cat, list(OPTIMIZE_RANGE), opt_base)
             opt = LDATopicModel.optimize_num_topics(
                 data=df_corpus_cat.to_dict("records"),
@@ -95,6 +100,11 @@ if __name__ == "__main__":
                 "  [%s] Best k=%d (coherence=%.4f) -> %s",
                 cat, best["k"], best["mean_coherence"], best["model_path"],
             )
+            selected_model_info = {
+                "model_path": best["model_path"],
+                "k": best["k"],
+                "mean_coherence": best["mean_coherence"],
+            }
             lda = LDATopicModel.load(best["model_path"], corpus=df_corpus_cat)
             lda.llm_provider   = LLM_PROVIDER
             lda.llm_model_type = LLM_MODEL
@@ -106,6 +116,21 @@ if __name__ == "__main__":
             (Path(best["model_path"]) / "TMmodel" / "tpc_labels.txt").write_text(
                 "\n".join(tm_opt._tpc_labels), encoding="utf-8"
             )
+        elif not RETRAIN and not Path(model_dir).exists() and opt_results_path.exists():
+            # Models were previously trained with OPTIMIZE=True — load the saved best.
+            with opt_results_path.open(encoding="utf-8") as f:
+                opt = json.load(f)
+            best = opt["selected"][0]
+            log.info(
+                "  [%s] Loading previously-optimized model (k=%d) from %s",
+                cat, best["k"], best["model_path"],
+            )
+            selected_model_info = {
+                "model_path": best["model_path"],
+                "k": best["k"],
+                "mean_coherence": best["mean_coherence"],
+            }
+            lda = LDATopicModel.load(best["model_path"], corpus=df_corpus_cat)
         elif RETRAIN or not Path(model_dir).exists():
             log.info("  [%s] Training LDA (%d topics, %d iters)...", cat, N_TOPICS, LDA_ITERS)
             lda = LDATopicModel(
@@ -165,7 +190,9 @@ if __name__ == "__main__":
             })
         log.info("  [%s] Cuts: %d->%d clusters across levels", cat, cuts[0]["n_clusters"], cuts[-1]["n_clusters"])
 
-        top_docs = top_docs_per_topic(X_cat, queries_ordered)
+        tm._compute_s3()
+        s3_mat = tm._s3.toarray() if tm._s3 is not None else None
+        top_docs = top_docs_per_topic(X_cat, queries_ordered, s3=s3_mat)
 
         tm.load_tpc_coords()
         tpc_coords = [list(c) for c in (tm._coords or [])]
@@ -174,7 +201,7 @@ if __name__ == "__main__":
         # Fallback: if pyLDAvis coords unavailable, use PCA on betas
         if not tpc_coords:
             log.info("  [%s] tpc_coords not available — computing PCA fallback from betas", cat)
-            betas_path = Path(model_dir) / "TMmodel" / "betas.npy"
+            betas_path = Path(lda.model_path) / "TMmodel" / "betas.npy"
             betas_mat = np.load(str(betas_path))
             if betas_mat.shape[0] >= 2:
                 coords_arr = PCA(n_components=2, random_state=42).fit_transform(betas_mat)
@@ -192,6 +219,11 @@ if __name__ == "__main__":
             "tpc_coords": [[round(c, 4) for c in xy] for xy in tpc_coords],
             "top_docs": top_docs,
             "n": n,
+            "model_info": {
+                "model_path": str(lda.model_path),
+                "n_topics": lda.num_topics,
+                **selected_model_info,
+            },
         }
         trees_by_category[cat] = {
             "nodes": flat_nodes,

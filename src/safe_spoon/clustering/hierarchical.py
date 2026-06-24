@@ -92,7 +92,6 @@ def build_tree(
         if node.is_leaf():
             gid = global_indices[node.id]
             d = {
-                "id": f"leaf_{gid}",
                 "id": gid,
                 "name": queries[gid][:72] + ("..." if len(queries[gid]) > 72 else ""),
                 "full": queries[gid],
@@ -129,9 +128,6 @@ def build_tree(
 
     for scipy_id in reversed(ordered):
         d = node_dict[scipy_id]
-
-        if not d["children"] and "id" in d:
-            continue
 
         left_id = d.get("_left_id")
         right_id = d.get("_right_id")

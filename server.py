@@ -149,6 +149,22 @@ def post_label():
     return jsonify({"ok": True})
 
 
+def _flatten_unit_tree(tree):
+    """Convert a nested unit-tree dict to {nodes, root_id} to avoid deep recursion in json.dumps."""
+    if tree is None:
+        return None, None
+    nodes = []
+    stack = [tree]
+    while stack:
+        node = stack.pop()
+        children = node.get("children", [])
+        flat = {k: v for k, v in node.items() if k != "children"}
+        flat["children_ids"] = [c["node_id"] for c in children]
+        nodes.append(flat)
+        stack.extend(children)
+    return nodes, tree["node_id"]
+
+
 @app.route("/api/annotation_units/<path:cat>")
 def api_annotation_units(cat):
     d = get_data()
@@ -157,10 +173,10 @@ def api_annotation_units(cat):
     thetas = info.get("thetas") or []
     if not thetas or not tree_info:
         return jsonify(
-            {"unit_tree": None, 
+            {"unit_tree": None,
              "n_units": 0,
-            "topic_keys": [], 
-            "topic_labels": [], 
+            "topic_keys": [],
+            "topic_labels": [],
             "config": {}
             }
         )
@@ -178,8 +194,9 @@ def api_annotation_units(cat):
         pw_balance = PW_BALANCE,
     )
     aum.build()
+    unit_nodes, unit_root_id = _flatten_unit_tree(aum.unit_tree)
     return jsonify({
-        "unit_tree": aum.unit_tree,
+        "unit_tree": {"nodes": unit_nodes, "root_id": unit_root_id} if unit_nodes is not None else None,
         "n_units": aum.n_units,
         "topic_keys": info.get("topic_keys",   []),
         "topic_labels": info.get("topic_labels", []),

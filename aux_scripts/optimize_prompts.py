@@ -31,18 +31,18 @@ TOPIC_PROMPT_VARIANTS = {
     # @marlenelutz add others
 }
 
-ANN_UNIT_PROMPT_VARIANTS = {
-    "default": _default_prompt_path("unit_labelling_dft.txt"),
-    # @marlenelutz add others
-}
+# ANN_UNIT_PROMPT_VARIANTS = {
+#     "default": _default_prompt_path("unit_labelling_dft.txt"),
+#     # @marlenelutz add others
+# }
 
-# Annotation unit config
-_au_cfg    = load_annotation_unit_config()
-MIN_SIZE   = _au_cfg["min_size"]
-MAX_PURITY = _au_cfg["max_purity"]
-PW_MIXTURE = _au_cfg["pw_mixture"]
-PW_SIZE    = _au_cfg["pw_size"]
-PW_BALANCE = _au_cfg["pw_balance"]
+# # Annotation unit config
+# _au_cfg = load_annotation_unit_config()
+# MIN_SIZE = _au_cfg["min_size"]
+# MAX_PURITY = _au_cfg["max_purity"]
+# PW_MIXTURE = _au_cfg["pw_mixture"]
+# PW_SIZE = _au_cfg["pw_size"]
+# PW_BALANCE = _au_cfg["pw_balance"]
 
 # Reconstruct corpus
 _, _all_queries, _all_labels = load_corpus_df(INPUT_FILE)
@@ -64,8 +64,8 @@ print("=" * 70)
 
 topic_results: dict = {}
 for name, prompt_path in TOPIC_PROMPT_VARIANTS.items():
-    print(f"\n── Variant: {name}  ({prompt_path})")
-    results = tm.generate_topic_outputs(task="label", topn=3, prompt_path=prompt_path)
+    print(f"\n- Variant: {name}  ({prompt_path})")
+    results = tm.generate_topic_outputs(task="label", topn=10, prompt_path=prompt_path)
     topic_results[name] = results
     for tpc_id, label in results:
         print(f"  Topic {tpc_id:2d}: {label}")
@@ -93,7 +93,7 @@ for name, prompt_path in TOPIC_PROMPT_VARIANTS.items():
 
 # unit_results: dict = {}
 # for name, prompt_path in ANN_UNIT_PROMPT_VARIANTS.items():
-#     print(f"\n── Variant: {name}  ({prompt_path})")
+#     print(f"\n- Variant: {name}  ({prompt_path})")
 #     results = aum.generate_unit_outputs(prompt_path=prompt_path)
 #     unit_results[name] = dict(results)
 #     for node_id, label in results:
