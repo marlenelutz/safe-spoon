@@ -1,9 +1,3 @@
-"""LDA topic model using the Tomotopy library.
-
-Collapsed from TOVA's BaseTMModel + TradTMmodel + TomotopyLDATMmodel into a
-single flat class that requires no YAML configuration file.
-"""
-
 import json
 import logging
 import shutil
@@ -13,8 +7,11 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import scipy.sparse as sparse
 import tomotopy as tp
+from scipy.ndimage import uniform_filter1d
+from scipy.signal import find_peaks
 from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
@@ -169,9 +166,9 @@ class LDATopicModel:
 
         # 2. Build trainable mask (short-doc fallback)
         trainable_mask = np.array([len(l) >= self.min_doc_words for l in lemma_lists])
-        train_idx = np.where(trainable_mask)[0]
-        short_idx = np.where(~trainable_mask)[0]
-        self._logger.info(f"Trainable: {len(train_idx)}  Short (fallback): {len(short_idx)}")
+        train_id = np.where(trainable_mask)[0]
+        short_id = np.where(~trainable_mask)[0]
+        self._logger.info(f"Trainable: {len(train_id)}  Short (fallback): {len(short_id)}")
 
         # 3. Train tomotopy LDA
         self._logger.info("Training LDA...")
@@ -179,7 +176,7 @@ class LDATopicModel:
             k=self.num_topics, tw=tp.TermWeight.ONE,
             alpha=self.alpha, eta=self.eta,
         )
-        for i in train_idx:
+        for i in train_id:
             self._lda_model.add_doc(lemma_lists[i])
 
         pbar = tqdm(total=self.num_iters, desc='LDA Training')
@@ -215,11 +212,11 @@ class LDATopicModel:
 
         # 6. Build full X_all, handling short docs with keyword-overlap fallback
         X_all = np.empty((n, self.num_topics))
-        X_all[train_idx] = thetas_train
-        if len(short_idx):
-            X_all[short_idx] = np.vstack([
+        X_all[train_id] = thetas_train
+        if len(short_id):
+            X_all[short_id] = np.vstack([
                 self._kw_theta(lemma_lists[i], self._topic_keys, self.num_topics)
-                for i in short_idx
+                for i in short_id
             ])
 
         self._thetas = X_all  # dense, for downstream clustering
@@ -227,12 +224,17 @@ class LDATopicModel:
         # 7. Create TMmodel (uses sparsified thetas; also sorts topics internally)
         self._create_tm_model(X_all, betas, self._vocab)
 
-        # 8. Re-derive topic_keys from TMmodel sorted betas so topic_keys,
-        # topic_labels, alphas and tpc_coords all share the same sorted order.
+        # Persist lemmas so TMmodel can compute S3 scores later without re-running the preprocessor
+        lemmas_path = self.model_path / "TMmodel" / "lemmas.json"
+        lemmas_path.write_text(
+            json.dumps(lemma_lists, ensure_ascii=False), encoding="utf-8"
+        )
+
+        # 8. Re-derive topic_keys from TMmodel sorted betas so topic_keys, topic_labels, alphas and tpc_coords all share the same sorted order.
         betas_sorted = np.load(str(self.model_path / "TMmodel" / "betas.npy"))
         vocab_sorted = (self.model_path / "TMmodel" / "vocab.txt").read_text(encoding="utf-8").strip().split("\n")
-        top_idx = np.argsort(betas_sorted, axis=1)[:, ::-1][:, :self.topn]
-        self._topic_keys = [[vocab_sorted[i] for i in row] for row in top_idx]
+        top_id = np.argsort(betas_sorted, axis=1)[:, ::-1][:, :self.topn]
+        self._topic_keys = [[vocab_sorted[i] for i in row] for row in top_id]
         # Also update thetas to sorted column order
         self._thetas = np.array(sparse.load_npz(str(self.model_path / "TMmodel" / "thetas.npz")).todense())
 
@@ -244,7 +246,7 @@ class LDATopicModel:
         return self._tm, elapsed
 
     def get_thetas(self) -> np.ndarray:
-        """Return the full dense theta matrix (n_docs × n_topics), including short-doc fallback rows."""
+        """Return the full dense theta matrix (n_docs x n_topics), including short-doc fallback rows."""
         if self._thetas is None:
             raise RuntimeError("Model not trained yet. Call train() first.")
         return self._thetas
@@ -267,7 +269,7 @@ class LDATopicModel:
         Returns
         -------
         thetas : np.ndarray
-            Document-topic matrix (n_docs × n_topics), sparsified and normalised.
+            Document-topic matrix (n_docs x n_topics), sparsified and normalised.
         """
         if self._lda_model is None:
             raise RuntimeError("Model not trained or loaded. Call train() or load() first.")
@@ -320,12 +322,20 @@ class LDATopicModel:
         self._logger.info("Model saved successfully.")
 
     @classmethod
-    def load(cls, model_path) -> "LDATopicModel":
+    def load(cls, model_path, corpus: Optional[pd.DataFrame] = None) -> "LDATopicModel":
         """Load a previously saved model from *model_path*.
 
         The returned instance has _lda_model ready for inference.
         The TMmodel is accessible via the tm property (loaded lazily).
         A preprocessor must be re-injected manually if needed for inference.
+
+        Parameters
+        ----------
+        corpus:
+            The training corpus DataFrame (must contain "id" and "text" columns,
+            in the same row order as training). Required for generate_topic_outputs()
+            and any operation that needs document text. Assumed same order as training;
+            doc_ids.json provides an id-based safety net if the order ever differs.
         """
         model_path = Path(model_path)
         meta_path = model_path / "metadata.json"
@@ -336,6 +346,7 @@ class LDATopicModel:
             meta = json.load(f)
 
         obj = cls(model_path=model_path, **meta)
+        obj._df = corpus
         bin_path = model_path / "model.bin"
         obj._logger.info(f"Loading Tomotopy model from {bin_path}")
         obj._lda_model = tp.LDAModel.load(str(bin_path))
@@ -353,8 +364,8 @@ class LDATopicModel:
         if betas_path.is_file() and vocab_path.is_file():
             betas = np.load(str(betas_path))
             vocab = vocab_path.read_text(encoding="utf-8").strip().split("\n")
-            top_idx = np.argsort(betas, axis=1)[:, ::-1][:, :obj.topn]
-            obj._topic_keys = [[vocab[i] for i in row] for row in top_idx]
+            top_id = np.argsort(betas, axis=1)[:, ::-1][:, :obj.topn]
+            obj._topic_keys = [[vocab[i] for i in row] for row in top_id]
             obj._logger.info(f"Topic keys restored: {len(obj._topic_keys)} topics")
 
         obj._logger.info("Model loaded successfully.")
@@ -362,6 +373,20 @@ class LDATopicModel:
 
     # Alias for compatibility
     from_saved_model = load
+
+    def get_ordered_corpus(self):
+        """Return (queries, query_ids) aligned to the theta-row order in doc_ids.json.
+
+        Requires the model to have been loaded or trained with a corpus DataFrame.
+        """
+        if self._df is None:
+            raise RuntimeError(
+                "No corpus attached. Load the model with corpus=<DataFrame>."
+            )
+        self.tm._load_doc_ids()
+        id_to_text = dict(zip(self._df["id"], self._df["text"]))
+        doc_ids    = self.tm._doc_ids or list(range(len(self._df)))
+        return [id_to_text.get(did, "") for did in doc_ids], list(doc_ids)
 
     @property
     def tm(self) -> TMmodel:
@@ -375,6 +400,7 @@ class LDATopicModel:
                 )
             self._tm = TMmodel(
                 TMfolder=tm_folder,
+                df_corpus_train=self._df,
                 do_labeller=self.do_labeller,
                 do_summarizer=self.do_summarizer,
                 llm_model_type=self.llm_model_type,
@@ -385,6 +411,141 @@ class LDATopicModel:
                 summarizer_prompt=self.summarizer_prompt,
             )
         return self._tm
+
+    @classmethod
+    def optimize_num_topics(
+        cls,
+        data: List[Dict],
+        base_path,
+        topic_range=range(10, 101, 10),
+        smoothing_window: int = 3,
+        n_best: Optional[int] = None,
+        logger: Optional[logging.Logger] = None,
+        **train_kwargs,
+    ) -> dict:
+        """Train LDA models across *topic_range* and return the coherence-peak candidates.
+
+        Each model is saved to base_path/model_{k}_topics/ for manual inspection.
+        A summary JSON is written to base_path/optimization_results.json.
+
+        Parameters
+        ----------
+        data:
+            Training corpus (same format as train()).
+        base_path:
+            Root directory under which per-k model folders are created.
+        topic_range:
+            Iterable of topic counts to evaluate.
+        smoothing_window:
+            Window size for the uniform smoothing filter applied to the
+            coherence-vs-ntopics curve before peak detection.
+        n_best:
+            Maximum number of peak models to return.  None returns all peaks.
+        logger:
+            Optional logger instance.
+        **train_kwargs:
+            Additional keyword arguments forwarded to the constructor
+            (e.g. num_iters, alpha, do_labeller, llm_provider, ...).
+            num_topics and model_path are controlled internally.
+
+        Returns
+        -------
+        dict with keys:
+            "scores": list of [k, mean_coherence] for every trained k
+            "smoothed": same but using the smoothed coherence values
+            "selected": list of {k, mean_coherence, model_path} dicts for peaks
+        """
+        base_path = Path(base_path)
+        base_path.mkdir(parents=True, exist_ok=True)
+        _log = logger or logging.getLogger(__name__)
+
+        # Labels are irrelevant here
+        # Strip do_labeller / do_summarizer from train_kwargs so they never propagate.
+        train_kwargs.pop("do_labeller",  None)
+        train_kwargs.pop("do_summarizer", None)
+
+        topic_counts = list(topic_range)
+        raw_scores: List[float] = []
+
+        for k in topic_counts:
+            model_path = base_path / f"model_{k}_topics"
+            _log.info(f"[optimize] Training model with k={k} topics -> {model_path}")
+            lda = cls(
+                model_path=model_path, num_topics=k, logger=_log,
+                do_labeller=False, do_summarizer=False,
+                **train_kwargs,
+            )
+            lda.train(data)
+            coh = np.load(model_path / "TMmodel" / "topic_coherence.npy")
+            mean_coh = float(np.mean(coh))
+            raw_scores.append(mean_coh)
+            _log.info(f"[optimize] k={k}: mean coherence = {mean_coh:.4f}")
+
+        coh_arr = np.array(raw_scores)
+
+        win = min(smoothing_window, len(coh_arr))
+        smoothed = uniform_filter1d(coh_arr, size=win)
+
+        peak_ids, _ = find_peaks(smoothed)
+        if len(peak_ids) == 0:
+            peak_ids = [int(np.argmax(smoothed))]
+
+        if n_best is not None:
+            peak_ids = sorted(peak_ids, key=lambda i: smoothed[i], reverse=True)[:n_best]
+
+        peak_ids = sorted(peak_ids)
+
+        selected = [
+            {
+                "k": topic_counts[i],
+                "mean_coherence": float(coh_arr[i]),
+                "model_path": str(base_path / f"model_{topic_counts[i]}_topics"),
+            }
+            for i in peak_ids
+        ]
+
+        result = {
+            "scores": [[k, float(c)] for k, c in zip(topic_counts, coh_arr)],
+            "smoothed": [[k, float(c)] for k, c in zip(topic_counts, smoothed)],
+            "selected": selected,
+        }
+
+        summary_path = base_path / "optimization_results.json"
+        with summary_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+        _log.info(f"[optimize] Results saved to {summary_path}")
+        _log.info(f"[optimize] Selected topic counts: {[s['k'] for s in selected]}")
+
+        # Coherence curve plot
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=topic_counts, y=coh_arr.tolist(),
+            mode="lines+markers", name="Raw coherence",
+            line=dict(color="steelblue", dash="dot"), marker=dict(size=5),
+        ))
+        fig.add_trace(go.Scatter(
+            x=topic_counts, y=smoothed.tolist(),
+            mode="lines", name="Smoothed",
+            line=dict(color="steelblue", width=2),
+        ))
+        for s in selected:
+            fig.add_vline(
+                x=s["k"], line_dash="dash", line_color="crimson", opacity=0.7,
+                annotation_text=f"k={s['k']}",
+                annotation_position="top right",
+            )
+        fig.update_layout(
+            title=f"Coherence vs. number of topics - {base_path.name}",
+            xaxis_title="Number of topics (k)",
+            yaxis_title="Mean topic coherence",
+            legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99),
+            template="plotly_white",
+        )
+        plot_path = base_path / "coherence_curve.html"
+        fig.write_html(str(plot_path))
+        _log.info(f"[optimize] Coherence curve saved to {plot_path}")
+
+        return result
 
     def _create_tm_model(
         self,

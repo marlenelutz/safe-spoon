@@ -24,5 +24,9 @@ openai>=1.0
 ollama>=0.4
 python-dotenv>=1.0
 requests>=2.31
+# web server
+flask>=3.0
 # optional visualization
 pyLDAvis>=3.4
+rapidfuzz>=3.0
+kneed>=0.8

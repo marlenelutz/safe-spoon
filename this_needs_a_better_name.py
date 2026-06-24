@@ -1,0 +1,221 @@
+import logging
+import os
+import time
+
+import numpy as np
+from pathlib import Path
+from sklearn.decomposition import PCA
+
+from dotenv import load_dotenv
+from scipy.cluster.hierarchy import fcluster
+
+from safe_spoon.clustering import build_flat_tree, resolve_topic_label
+from safe_spoon.utils.data_utils import corpus_for_category, load_corpus_df
+from safe_spoon.utils.renderer import render_html, save_json
+from safe_spoon.preprocessing import SimpleTMPreprocessor
+from safe_spoon.topic_modeling import LDATopicModel
+from safe_spoon.topic_modeling.tm_model import top_docs_per_topic
+
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+# config
+INPUT_FILE = "data/high_risk_automatically_labelled_filtered_cleaned.csv" # this inludes the filtering done in aux_scripts/data_filtering.py
+CONTENT_COL = "content"
+LABEL_COL = "high_risk_label"
+TEMPLATE_FILE = "static/viz_v5_template.html"
+OUTPUT_FILE = "data/output/viz_v5_final.html"
+OUTPUT_JSON = "data/output/viz_v5_data.json"
+
+#CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
+CATEGORIES = ['Health']
+
+RETRAIN = True
+OPTIMIZE = True
+OPTIMIZE_RANGE = range(10, 51, 5)
+
+LLM_PROVIDER = "openai"
+LLM_MODEL    = "gpt-5.4-nano-2026-03-17"
+LLM_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+N_TOPICS  = 30
+LDA_ITERS = 500
+N_REPR_QUERIES = 5
+N_CUT_LEVELS = 40
+LINKAGE_METHOD = "average"
+
+
+if __name__ == "__main__":
+    log.info("Loading data from %s", INPUT_FILE)
+    _, queries, labels = load_corpus_df(INPUT_FILE, content_col=CONTENT_COL, label_col=LABEL_COL)
+
+    all_categories = sorted(set(labels))
+    categories = [c for c in CATEGORIES if c in all_categories] if CATEGORIES else all_categories
+    log.info("Loaded %d queries * %d categories: %s", len(queries), len(categories), categories)
+
+    log.info("Initialising spaCy preprocessor (model=en_core_web_lg)")
+    preprocessor = SimpleTMPreprocessor(spacy_model="en_core_web_lg", min_df=10, max_df=0.6)
+
+    data_by_category = {}
+    trees_by_category = {}
+    t_total = time.time()
+
+    for cat_id, cat in enumerate(categories, 1):
+        df_corpus_cat = corpus_for_category(queries, labels, cat)
+        n = len(df_corpus_cat)
+        log.info("── Category %d/%d: '%s' (%d queries)", cat_id, len(categories), cat, n)
+
+        if n < 2:
+            log.warning("  Skipping '%s' — fewer than 2 queries", cat)
+            continue
+
+        model_dir = f"./data/models/{cat.replace(' ', '_')}"
+
+        if OPTIMIZE:
+            opt_base = f"./data/models/{cat.replace(' ', '_')}_optimize"
+            log.info("  [%s] Optimising num_topics over %s -> %s", cat, list(OPTIMIZE_RANGE), opt_base)
+            opt = LDATopicModel.optimize_num_topics(
+                data=df_corpus_cat.to_dict("records"),
+                base_path=opt_base,
+                topic_range=OPTIMIZE_RANGE,
+                num_iters=LDA_ITERS,
+                alpha=0.1,
+                eta=0.01,
+                preprocessor=preprocessor,
+                logger=log,
+            )
+            best = opt["selected"][0]
+            log.info(
+                "  [%s] Best k=%d (coherence=%.4f) -> %s",
+                cat, best["k"], best["mean_coherence"], best["model_path"],
+            )
+            lda = LDATopicModel.load(best["model_path"], corpus=df_corpus_cat)
+            lda.llm_provider   = LLM_PROVIDER
+            lda.llm_model_type = LLM_MODEL
+            lda.llm_api_key    = LLM_API_KEY
+            log.info("  [%s] Generating topic labels for best model (k=%d)...", cat, best["k"])
+            tm_opt = lda.tm
+            results = tm_opt.generate_topic_outputs(task="label", topn=3)
+            tm_opt._tpc_labels = [lbl for _, lbl in sorted(results)]
+            (Path(best["model_path"]) / "TMmodel" / "tpc_labels.txt").write_text(
+                "\n".join(tm_opt._tpc_labels), encoding="utf-8"
+            )
+        elif RETRAIN or not Path(model_dir).exists():
+            log.info("  [%s] Training LDA (%d topics, %d iters)...", cat, N_TOPICS, LDA_ITERS)
+            lda = LDATopicModel(
+                model_dir,
+                num_topics=N_TOPICS,
+                num_iters=LDA_ITERS,
+                alpha=0.1,
+                eta=0.01,
+                preprocessor=preprocessor,
+                do_labeller=True,
+                do_summarizer=False,
+                llm_provider=LLM_PROVIDER,
+                llm_model_type=LLM_MODEL,
+                llm_api_key=LLM_API_KEY,
+            )
+            _, elapsed = lda.train(df_corpus_cat.to_dict("records"))
+            log.info("  [%s] LDA done in %.1f min", cat, elapsed / 60)
+        else:
+            log.info("  [%s] Loading existing model from %s", cat, model_dir)
+            lda = LDATopicModel.load(model_dir, corpus=df_corpus_cat)
+
+        queries_ordered, query_ids_ordered = lda.get_ordered_corpus()
+        n = len(queries_ordered)
+        if n < 2:
+            log.warning("  Skipping '%s' — fewer than 2 docs after preprocessing", cat)
+            continue
+
+        X_cat = lda.get_thetas()
+        topic_keys = lda.get_topic_keys()
+        tm = lda.tm
+        tm.load_tpc_labels()
+        llm_labels = getattr(tm, "_tpc_labels", None)
+        using_llm  = bool(llm_labels and not all(l.startswith("Topic ") for l in llm_labels))
+        topic_labels = llm_labels if using_llm else [resolve_topic_label(i, None, topic_keys) for i in range(len(topic_keys))]
+        log.info("  [%s] Using %s topic labels", cat, "LLM-generated" if using_llm else "keyword-based")
+        log.info("  [%s] Thetas: %s * vocab: %d words", cat, X_cat.shape, len(set(w for kw in topic_keys for w in kw)))
+
+        log.info("  [%s] Building hierarchy (%d docs)...", cat, n)
+        t0 = time.time()
+        local_indices = list(range(n))
+        flat_nodes, root_id, Z = build_flat_tree(
+            X_cat, local_indices, queries_ordered,
+            linkage_method=LINKAGE_METHOD, n_repr=N_REPR_QUERIES,
+        )
+        min_d, max_d = float(Z[:, 2].min()), float(Z[:, 2].max())
+        log.info("  [%s] Hierarchy done in %.1fs * %d nodes", cat, time.time() - t0, len(flat_nodes))
+
+        # cut levels
+        log.info("  [%s] Computing %d cut levels...", cat, N_CUT_LEVELS)
+        cuts = []
+        for d in np.linspace(min_d * 0.99, max_d * 1.01, N_CUT_LEVELS):
+            assignment = fcluster(Z, t=d, criterion="distance").tolist()
+            cuts.append({
+                "distance": round(float(d), 4),
+                "n_clusters": len(set(assignment)),
+                "assignment": assignment,
+            })
+        log.info("  [%s] Cuts: %d->%d clusters across levels", cat, cuts[0]["n_clusters"], cuts[-1]["n_clusters"])
+
+        top_docs = top_docs_per_topic(X_cat, queries_ordered)
+
+        tm.load_tpc_coords()
+        tpc_coords = [list(c) for c in (tm._coords or [])]
+        alphas = tm.get_alphas().tolist()
+
+        # Fallback: if pyLDAvis coords unavailable, use PCA on betas
+        if not tpc_coords:
+            log.info("  [%s] tpc_coords not available — computing PCA fallback from betas", cat)
+            betas_path = Path(model_dir) / "TMmodel" / "betas.npy"
+            betas_mat = np.load(str(betas_path))
+            if betas_mat.shape[0] >= 2:
+                coords_arr = PCA(n_components=2, random_state=42).fit_transform(betas_mat)
+                tpc_coords = [[round(float(x), 4), round(float(y), 4)] for x, y in coords_arr]
+            else:
+                tpc_coords = [[0.0, 0.0]] * betas_mat.shape[0]
+
+        data_by_category[cat] = {
+            "queries": queries_ordered,
+            "query_ids": query_ids_ordered,
+            "topic_keys": topic_keys,
+            "topic_labels": topic_labels,
+            "thetas": [[round(float(v), 4) for v in row] for row in X_cat],
+            "alphas": [round(float(a), 6) for a in alphas],
+            "tpc_coords": [[round(c, 4) for c in xy] for xy in tpc_coords],
+            "top_docs": top_docs,
+            "n": n,
+        }
+        trees_by_category[cat] = {
+            "nodes": flat_nodes,
+            "root_id": root_id,
+            "indices": local_indices,
+            "cuts": cuts,
+            "min_dist": round(min_d, 4),
+            "max_dist": round(max_d, 4),
+            "n": n,
+        }
+        log.info("  [%s] Done", cat)
+
+    log.info("All categories processed in %.1f min", (time.time() - t_total) / 60)
+
+    # save output 
+    payload = {
+        "categories": categories,
+        "data_by_category": data_by_category,
+        "trees_by_category": trees_by_category,
+        "n_repr": N_REPR_QUERIES,
+    }
+
+    log.info("Saving JSON to %s", OUTPUT_JSON)
+    save_json(payload, OUTPUT_JSON)
+    log.info("Rendering HTML to %s", OUTPUT_FILE)
+    render_html(payload, TEMPLATE_FILE, OUTPUT_FILE)
+    log.info("Done * %s + %s", OUTPUT_FILE, OUTPUT_JSON)

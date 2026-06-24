@@ -1,6 +1,6 @@
 """Generic topic model representation for curation and visualization.
 
-Adapted from the topicmodeler project and TOVA.
+Adapted from the topicmodeler project.
 Authors: Jerónimo Arenas-García, J.A. Espinosa-Melchor, Lorena Calvo-Bartolomé
 """
 
@@ -8,10 +8,7 @@ import concurrent.futures
 import itertools
 import json
 import logging
-import shutil
-import time
 import warnings
-from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional
 
@@ -21,6 +18,8 @@ import rbo
 import scipy.sparse as sparse
 from gensim.corpora import Dictionary
 from gensim.models.coherencemodel import CoherenceModel
+from kneed import KneeLocator
+from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import jensenshannon
 
 from safe_spoon.prompting import Prompter, _default_prompt_path
@@ -30,12 +29,11 @@ class TMmodel(object):
     """Represents a topic model (LDA-style) and provides curation operations.
 
     The model is characterised by:
-      _alphas  - topic weights vector
-      _betas   - topic-word matrix  (n_topics x n_vocab)
-      _thetas  - document-topic matrix (n_docs x n_topics, sparse)
+      _alphas: topic weights vector
+      _betas: topic-word matrix  (n_topics x n_vocab)
+      _thetas: document-topic matrix (n_docs x n_topics, sparse)
 
-    All matrices and derived quantities are persisted to TMfolder so that
-    the object can be reconstructed from disk without retraining.
+    All matrices and derived quantities are persisted to TMfolder so that the object can be reconstructed from disk without retraining.
     """
 
     _TMfolder = None
@@ -63,7 +61,10 @@ class TMmodel(object):
     _vocab = None
     _size_vocab = None
     _most_representative_docs = None
-    _tpc_clusters = None
+    _doc_ids = None
+    _corpus_lookup = None
+    _lemmas = None
+    _s3 = None
 
     def __init__(
         self,
@@ -135,6 +136,11 @@ class TMmodel(object):
         with self._TMfolder.joinpath('vocab.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(vocab))
 
+        if self._df_corpus_train is not None:
+            doc_ids = self._df_corpus_train["id"].tolist()
+            with self._TMfolder.joinpath('doc_ids.json').open('w', encoding='utf8') as fout:
+                json.dump(doc_ids, fout)
+
         self._sort_topics()
         self._logger.info("-- -- Sorted")
         self._calculate_beta_ds()
@@ -170,9 +176,6 @@ class TMmodel(object):
         self._tpc_add_info = add_info
 
         self.get_most_representative_per_tpc(self._thetas)
-        self.get_topic_clusters()
-
-        self.get_thetas_representation()
 
         try:
             self.calculate_rbo()
@@ -199,11 +202,6 @@ class TMmodel(object):
         np.save(self._TMfolder.joinpath('ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_descriptions))
-
-        self.save_topic_documents(mode="most_representative")
-        self.save_topic_documents(mode="clusters")
-
-        self.save_thetas_representation()
 
         with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_labels))
@@ -271,12 +269,12 @@ class TMmodel(object):
         self._load_thetas()
         self._load_edits()
 
-        idx = np.argsort(self._alphas)[::-1]
-        self._edits.append('s ' + ' '.join([str(el) for el in idx]))
+        id = np.argsort(self._alphas)[::-1]
+        self._edits.append('s ' + ' '.join([str(el) for el in id]))
 
-        self._alphas = self._alphas[idx]
-        self._betas = self._betas[idx, :]
-        self._thetas = self._thetas[:, idx]
+        self._alphas = self._alphas[id]
+        self._betas = self._betas[id, :]
+        self._thetas = self._thetas[:, id]
 
         return
 
@@ -458,32 +456,57 @@ class TMmodel(object):
                 return
             self._topic_coherence = np.load(coherence_path)
 
+    def _load_doc_ids(self):
+        if self._doc_ids is None:
+            path = self._TMfolder.joinpath('doc_ids.json')
+            if path.is_file():
+                with path.open('r', encoding='utf8') as fin:
+                    self._doc_ids = json.load(fin)
+
+    def _build_corpus_lookup(self):
+        if self._corpus_lookup is None and self._df_corpus_train is not None:
+            self._corpus_lookup = dict(
+                zip(self._df_corpus_train["id"], self._df_corpus_train["text"])
+            )
+
+    def _load_lemmas(self):
+        if self._lemmas is None:
+            path = self._TMfolder.joinpath("lemmas.json")
+            if path.is_file():
+                self._lemmas = json.loads(path.read_text(encoding="utf-8"))
+
+    def _compute_s3(self):
+        """Compute S3 score matrix (n_docs x n_topics): mean beta weight of each
+        document's lemmas under each topic. Uses only vocab words present in betas.
+        Falls back gracefully to None if lemmas or vocab dicts are unavailable.
+        """
+        self._load_lemmas()
+        self._load_betas()
+        self._load_vocab_dicts()
+        if self._lemmas is None or self._vocab_w2id is None:
+            return
+        n_docs = len(self._lemmas)
+        n_topics = self._betas.shape[0]
+        S3 = np.zeros((n_docs, n_topics), dtype=np.float32)
+        for doc_idx, tokens in enumerate(self._lemmas):
+            wd_ids = [self._vocab_w2id[w] for w in tokens if w in self._vocab_w2id]
+            if not wd_ids:
+                continue
+            S3[doc_idx] = self._betas[:, wd_ids].mean(axis=1)
+        self._s3 = sparse.csr_matrix(S3)
+
     def _largest_indices(self, ary, n):
         flat = ary.flatten()
         indices = np.argpartition(flat, -n)[-n:]
         indices = indices[np.argsort(-flat[indices])]
-        idx0, idx1 = np.unravel_index(indices, ary.shape)
-        idx0 = idx0.tolist()
-        idx1 = idx1.tolist()
-        selected_idx = []
-        for id0, id1 in zip(idx0, idx1):
+        id0, id1 = np.unravel_index(indices, ary.shape)
+        id0 = id0.tolist()
+        id1 = id1.tolist()
+        selected_id = []
+        for id0, id1 in zip(id0, id1):
             if id0 < id1:
-                selected_idx.append((id0, id1, ary[id0, id1]))
-        return selected_idx
-
-    def get_model_info_for_hierarchical(self):
-        self._load_betas()
-        self._load_thetas()
-        self._load_vocab_dicts()
-        return self._betas, self._thetas, self._vocab_w2id, self._vocab_id2w
-
-    def get_model_info_for_vis(self):
-        self._load_alphas()
-        self._load_betas()
-        self._load_thetas()
-        self._load_vocab()
-        self.load_tpc_coords()
-        return self._alphas, self._betas, self._thetas, self._vocab, self._coords
+                selected_id.append((id0, id1, ary[id0, id1]))
+        return selected_id
 
     def get_tpc_word_descriptions(self, n_words=15, tfidf=True, tpc=None):
         if tfidf:
@@ -498,9 +521,9 @@ class TMmodel(object):
         tpc_descs = []
         for i in tpc:
             if tfidf:
-                words = [self._vocab[idx2] for idx2 in np.argsort(self._betas_ds[i])[::-1][0:n_words]]
+                words = [self._vocab[id2] for id2 in np.argsort(self._betas_ds[i])[::-1][0:n_words]]
             else:
-                words = [self._vocab[idx2] for idx2 in np.argsort(self._betas[i])[::-1][0:n_words]]
+                words = [self._vocab[id2] for id2 in np.argsort(self._betas[i])[::-1][0:n_words]]
             tpc_descs.append((i, ', '.join(words)))
 
         return tpc_descs
@@ -510,182 +533,153 @@ class TMmodel(object):
             with self._TMfolder.joinpath('tpc_descriptions.txt').open('r', encoding='utf8') as fin:
                 self._tpc_descriptions = [el.strip() for el in fin.readlines()]
 
-    def get_thetas_representation(self):
-        if self._thetas is None:
-            self._load_thetas()
-
-        all_docs = {}
-        thetas_array = self._thetas.toarray()
-
-        for doc_id, topic_distribution in zip(self._df_corpus_train.id, thetas_array):
-            non_zero_topics = [(topic_id, float(prob)) for topic_id, prob in enumerate(topic_distribution) if prob > 0]
-            sorted_topics = sorted(non_zero_topics, key=lambda x: x[1], reverse=True)
-            all_docs[doc_id] = sorted_topics
-
-        return all_docs
-
-    def save_thetas_representation(self):
-        all_docs = self.get_thetas_representation()
-        output_path = self._TMfolder.joinpath("thetas_representation.json")
-        with output_path.open("w", encoding="utf-8") as fout:
-            json.dump(all_docs, fout, indent=4)
-        self._logger.info(f"Thetas representation saved to {output_path}")
-
-    def load_thetas_representation(self):
-        input_path = self._TMfolder.joinpath("thetas_representation.json")
-        if not input_path.is_file():
-            self._logger.error(f"Thetas representation file not found: {input_path}")
-            return
-        with input_path.open("r", encoding="utf-8") as fin:
-            return json.load(fin)
-
-    def get_most_representative_per_tpc(self, mat, topn=None, get_text=False):
-        top_docs_per_topic = []
+    def get_most_representative_per_tpc(
+        self,
+        mat,
+        topn=None,
+        get_text=False,
+        length_quantile_bounds=(0.1, 0.9),
+        poly_degree=3,
+        smoothing_window=5,
+        seed=2357_11,
+    ):
+        np.random.seed(seed)
         aux = mat.toarray()
+        n_docs, n_topics = aux.shape
 
-        if topn is None:
-            topn = len(aux)
+        self._load_doc_ids()
+        self._build_corpus_lookup()
 
-        for doc_distr in aux.T:
-            sorted_docs_indices = np.argsort(doc_distr)[::-1]
-            top = sorted_docs_indices[:topn].tolist()
-            top_docs_per_topic.append(top)
+        if self._s3 is None:
+            self._compute_s3()
+        s3 = self._s3.toarray() if self._s3 is not None else None
+
+        # Build a mask of documents whose length falls within the given quantile range.
+        valid_mask = np.ones(n_docs, dtype=bool)
+        if length_quantile_bounds is not None:
+            if self._doc_ids is not None and self._corpus_lookup is not None:
+                doc_lengths = np.array([
+                    len(str(self._corpus_lookup.get(doc_id, "")).split())
+                    for doc_id in self._doc_ids
+                ])
+                lo = np.quantile(doc_lengths, length_quantile_bounds[0])
+                hi = np.quantile(doc_lengths, length_quantile_bounds[1])
+                valid_mask = (doc_lengths >= lo) & (doc_lengths <= hi)
+            elif (
+                self._df_corpus_train is not None
+                and "text" in self._df_corpus_train.columns
+            ):
+                doc_lengths = (
+                    self._df_corpus_train["text"]
+                    .apply(lambda x: len(str(x).split()))
+                    .values
+                )
+                lo = np.quantile(doc_lengths, length_quantile_bounds[0])
+                hi = np.quantile(doc_lengths, length_quantile_bounds[1])
+                valid_mask = (doc_lengths >= lo) & (doc_lengths <= hi)
 
         most_representative_docs = []
 
-        if get_text:
-            for topic_id, topic_docs in enumerate(top_docs_per_topic):
-                reps = [
-                    (self._df_corpus_train.iloc[doc].id, self._df_corpus_train.iloc[doc].text, aux[doc, topic_id])
-                    for doc in topic_docs
-                ]
-                most_representative_docs.append(reps)
-        else:
-            for topic_id, topic_docs in enumerate(top_docs_per_topic):
-                reps = [
-                    (self._df_corpus_train.iloc[doc].id, "", aux[doc, topic_id])
-                    for doc in topic_docs
-                ]
-                most_representative_docs.append(reps)
+        for k in range(n_topics):
+            col = aux[:, k]
+
+            # Elbow detection
+            all_values = np.sort(col.flatten())
+            step = max(1, int(np.round(len(all_values) / 1000)))
+            x_values = all_values[::step]
+            y_values = (100 / len(all_values)) * np.arange(len(all_values))[::step]
+            y_smooth = uniform_filter1d(y_values, size=smoothing_window)
+
+            elbow = None
+            try:
+                kneedle = KneeLocator(
+                    x_values,
+                    y_smooth,
+                    curve="convex",
+                    direction="increasing",
+                    interp_method="polynomial",
+                    polynomial_degree=poly_degree,
+                )
+                elbow = kneedle.elbow
+            except Exception as e:
+                self._logger.warning(f"Elbow detection failed for topic {k}: {e}")
+
+            # Candidates = above elbow threshold AND within length bounds
+            if elbow is not None:
+                above_elbow = col >= elbow
+                candidate_id = np.where(above_elbow & valid_mask)[0]
+                if len(candidate_id) == 0:
+                    # Relax length filter but keep elbow threshold
+                    self._logger.warning(
+                        f"Topic {k}: no length-valid docs above elbow; relaxing length filter."
+                    )
+                    candidate_id = np.where(above_elbow)[0]
+            else:
+                self._logger.warning(
+                    f"Topic {k}: no elbow found; falling back to length-filtered docs."
+                )
+                candidate_id = np.where(valid_mask)[0]
+
+            if len(candidate_id) == 0:
+                candidate_id = np.arange(n_docs)
+
+            # Score candidates: use S3 (lexical evidence) when available, theta otherwise
+            if s3 is not None:
+                scores = s3[candidate_id, k]
+            else:
+                scores = col[candidate_id]
+            candidate_id = candidate_id[np.argsort(scores)[::-1]]
+
+            # Take the deterministic top-N by score
+            if topn is None:
+                chosen = candidate_id.tolist()
+            else:
+                chosen = candidate_id[:min(topn, len(candidate_id))].tolist()
+
+            if self._doc_ids is not None:
+                if get_text:
+                    reps = [
+                        (
+                            self._doc_ids[doc],
+                            self._corpus_lookup.get(self._doc_ids[doc], "") if self._corpus_lookup else "",
+                            aux[doc, k],
+                        )
+                        for doc in chosen
+                    ]
+                else:
+                    reps = [(self._doc_ids[doc], "", aux[doc, k]) for doc in chosen]
+            elif self._df_corpus_train is not None:
+                if get_text:
+                    reps = [
+                        (
+                            self._df_corpus_train.iloc[doc].id,
+                            self._df_corpus_train.iloc[doc].text,
+                            aux[doc, k],
+                        )
+                        for doc in chosen
+                    ]
+                else:
+                    reps = [
+                        (self._df_corpus_train.iloc[doc].id, "", aux[doc, k])
+                        for doc in chosen
+                    ]
+            else:
+                reps = [(doc, "", aux[doc, k]) for doc in chosen]
+            most_representative_docs.append(reps)
 
         self._most_representative_docs = most_representative_docs
 
-    def get_topic_clusters(self, get_text: bool = False):
-        if self._thetas is None:
-            self._logger.warning("Thetas not loaded.")
-            return []
-
-        thetas = self._thetas.toarray()
-        n_topics = thetas.shape[1]
-
-        if not hasattr(self, "_df_corpus_train"):
-            self._logger.warning("Document corpus not available.")
-            return []
-        elif len(self._df_corpus_train) != thetas.shape[0] and hasattr(self, "sample") and len(self.df) == thetas.shape[0]:
-            df_corpus = self.df
-        else:
-            df_corpus = self._df_corpus_train
-
-        clusters = [[] for _ in range(n_topics)]
-
-        for doc_idx, topic_probs in enumerate(thetas):
-            top_topic = topic_probs.argmax()
-            doc_id = df_corpus.iloc[doc_idx].id
-            text = df_corpus.iloc[doc_idx].text if get_text else ""
-            prob = topic_probs[top_topic]
-            clusters[top_topic].append((doc_id, text, prob))
-
-        self._tpc_clusters = clusters
-
-    def save_topic_documents(self, mode: str = "most_representative", output_file: str = None):
-        if mode not in {"most_representative", "clusters"}:
-            raise ValueError("Mode must be 'most_representative' or 'clusters'.")
-
-        if mode == "most_representative":
-            if self._most_representative_docs is None:
-                self._logger.warning("Most representative documents not calculated yet.")
-                return
-            data = self._most_representative_docs
-            filename = "most_representative_docs.jsonl"
-        else:
-            data = self._tpc_clusters
-            filename = "topic_clusters.jsonl"
-
-        doc_meta_map = {}
-        extra_keys = set()
-
-        if self._tpc_add_info:
-            for topic_info in self._tpc_add_info:
-                for doc in topic_info.get("docs", []):
-                    d_id = doc.get("doc_id")
-                    if d_id is not None:
-                        meta = {k: v for k, v in doc.items() if k not in ['doc_id', 'prob']}
-                        doc_meta_map[d_id] = meta
-                        extra_keys.update(meta.keys())
-
-        sorted_extra_keys = sorted(list(extra_keys))
-        output_path = Path(output_file) if output_file else self._TMfolder.joinpath(filename)
-
-        with output_path.open("w", encoding="utf-8") as fout:
-            for tpc_id, docs in enumerate(data):
-                enriched_docs = []
-                for doc_id, _, prob in docs:
-                    doc_id = doc_id.item() if hasattr(doc_id, "item") else doc_id
-                    doc_obj = {"doc_id": doc_id, "prob": float(prob)}
-
-                    if self._tpc_add_info:
-                        meta_data = doc_meta_map.get(doc_id, {})
-                        for key in sorted_extra_keys:
-                            val = meta_data.get(key, "")
-                            doc_obj[key] = val.item() if hasattr(val, "item") else val
-
-                    enriched_docs.append(doc_obj)
-
-                topic_entry = {"topic_id": tpc_id, "docs": enriched_docs}
-                fout.write(json.dumps(topic_entry) + "\n")
-
-        self._logger.info(f"{mode.replace('_', ' ').title()} documents saved to {output_path}")
-
-    def load_topic_documents(self, mode: str = "most_representative", n_most: int = None, store: bool = True):
-        if mode not in {"most_representative", "clusters"}:
-            raise ValueError("Mode must be 'most_representative' or 'clusters'.")
-
-        filename = "most_representative_docs.jsonl" if mode == "most_representative" else "topic_clusters.jsonl"
-        jsonl_path = self._TMfolder.joinpath(filename)
-
-        if not jsonl_path.is_file():
-            self._logger.warning(f"File not found: {jsonl_path}")
-            return None
-
-        self._logger.info(f"Loading topic document assignments from {jsonl_path}")
-        topic_docs_list = []
-
-        with jsonl_path.open("r", encoding="utf-8") as fin:
-            for line in fin:
-                entry = json.loads(line)
-                docs = sorted(entry.get("docs", []), key=lambda d: d["prob"], reverse=True)
-                keep_n = n_most if n_most is not None else len(docs)
-                topic_docs = [(doc["doc_id"], None, doc["prob"]) for doc in docs[:keep_n]]
-                topic_docs_list.append(topic_docs)
-
-        if store:
-            if mode == "most_representative":
-                self._most_representative_docs = topic_docs_list
-            else:
-                self._tpc_clusters = topic_docs_list
-            self._logger.info(f"Loaded {mode.replace('_', ' ')} documents into internal attribute.")
-        else:
-            return topic_docs_list
-
-    def generate_topic_outputs(self, task: str = "label", topn: int = 3, max_tokens: int = None, batch_size: int = None, max_retries: int = 5):
+    def generate_topic_outputs(self, task: str = "label", topn: int = 3, max_tokens: int = None, batch_size: int = None, max_retries: int = 5, prompt_path: Optional[str] = None):
         """Generate LLM-based labels or summaries for all topics using parallel batch processing."""
         if task not in {"label", "summary"}:
             raise ValueError(f"Invalid task: {task}. Use 'label' or 'summary'.")
 
         self.load_tpc_descriptions()
+        self._load_thetas()
         self.get_most_representative_per_tpc(self._thetas, topn=topn, get_text=True)
 
-        prompt_path = self._labeller_prompt if task == "label" else self._summarizer_prompt
+        if prompt_path is None:
+            prompt_path = self._labeller_prompt if task == "label" else self._summarizer_prompt
         template_str = Path(str(prompt_path)).read_text(encoding="utf-8")
 
         self._logger.info(
@@ -708,7 +702,6 @@ class TMmodel(object):
                 docs=docs,
             )
             prompts.append((tpc_id, prompt_filled))
-
         def _run_prompt(args):
             tpc_id, prompt_filled = args
             output_text = None
@@ -989,19 +982,19 @@ class TMmodel(object):
         self._load_vocab()
 
         try:
-            idx = np.argsort(self._alphas)[::-1]
-            self._edits.append('s ' + ' '.join([str(el) for el in idx]))
+            id = np.argsort(self._alphas)[::-1]
+            self._edits.append('s ' + ' '.join([str(el) for el in id]))
 
-            self._thetas = self._thetas[:, idx]
-            self._alphas = self._alphas[idx]
-            self._betas = self._betas[idx, :]
-            self._betas_ds = self._betas_ds[idx, :]
-            self._ndocs_active = self._ndocs_active[idx]
-            self._topic_entropy = self._topic_entropy[idx]
-            self._topic_coherence = self._topic_coherence[idx]
-            self._tpc_labels = [self._tpc_labels[i] for i in idx]
-            self._tpc_descriptions = [self._tpc_descriptions[i] for i in idx]
-            self._edits.append('s ' + ' '.join([str(el) for el in idx]))
+            self._thetas = self._thetas[:, id]
+            self._alphas = self._alphas[id]
+            self._betas = self._betas[id, :]
+            self._betas_ds = self._betas_ds[id, :]
+            self._ndocs_active = self._ndocs_active[id]
+            self._topic_entropy = self._topic_entropy[id]
+            self._topic_coherence = self._topic_coherence[id]
+            self._tpc_labels = [self._tpc_labels[i] for i in id]
+            self._tpc_descriptions = [self._tpc_descriptions[i] for i in id]
+            self._edits.append('s ' + ' '.join([str(el) for el in id]))
 
             self._save_all()
             self._logger.info('-- -- Topics reordering successful. All variables saved to file')
@@ -1047,13 +1040,11 @@ class TMmodel(object):
         self._load_ndocs_active()
         self._load_vocab()
         self._load_vocab_dicts()
-        self.load_topic_documents(mode="most_representative", n_most=n_most)
-        self.load_topic_documents(mode="clusters")
+        self.load_topic_documents(n_most=n_most)
         self.load_tpc_coords()
         irbo = self.calculate_rbo()
         td = self.calculate_topic_diversity()
         similar = self.getSimilarTopicsDicts(nsimilar=nsimilar, thr=thr)
-        thetas_rpr = self.load_thetas_representation()
 
         data = {
             "Size": [self._alphas],
@@ -1064,7 +1055,6 @@ class TMmodel(object):
             "Label": [self._tpc_labels],
             "Summary": [self._tpc_summaries],
             "Top Documents": [self._most_representative_docs],
-            "Assigned Documents": [self._tpc_clusters],
             "Coordinates": [self._coords],
         }
         df = pd.DataFrame(data)
@@ -1073,10 +1063,52 @@ class TMmodel(object):
         df["Top Documents"] = df["Top Documents"].apply(
             lambda x: {i[0]: float(i[2]) for i in x}
         )
-        df["Assigned Documents"] = df["Assigned Documents"].apply(
-            lambda x: {i[0]: float(i[2]) for i in x}
-        )
         df = df.reset_index(drop=True)
         df["ID"] = df.index
 
-        return df, self._vocab_id2w, self._vocab, irbo, td, similar, thetas_rpr
+        return df, self._vocab_id2w, self._vocab, irbo, td, similar
+
+
+def top_docs_per_topic(
+    thetas: np.ndarray,
+    queries: List[str],
+    topn: int = 10,
+    length_quantile_bounds: tuple = (0.10, 0.90),
+) -> List[List[int]]:
+    """Return the top-*topn* document indices per topic for a category subset.
+
+    Parameters
+    ----------
+    thetas:
+        Document-topic matrix for the category, shape (n_docs, n_topics).
+        Plain numpy array (not sparse).
+    queries:
+        Raw query strings for the same documents (length must equal n_docs).
+    topn:
+        Maximum number of document indices to return per topic.
+    length_quantile_bounds:
+        (lo, hi) quantiles used to exclude very short / very long queries.
+        Documents outside this range are skipped; falls back to all docs if
+        no candidates survive.
+
+    Returns
+    -------
+    List of length n_topics; each element is a list of local doc indices
+    (into *thetas* / *queries*) sorted by descending theta for that topic.
+    """
+    word_counts = np.array([len(q.split()) for q in queries])
+    non_empty = np.array([bool(q.strip()) for q in queries])
+    lo, hi = np.quantile(word_counts[non_empty] if non_empty.any() else word_counts,
+                         list(length_quantile_bounds))
+    valid = np.where(non_empty & (word_counts >= lo) & (word_counts <= hi))[0]
+    if len(valid) == 0:
+        valid = np.where(non_empty)[0]
+    if len(valid) == 0:
+        valid = np.arange(len(queries))
+
+    result = []
+    for j in range(thetas.shape[1]):
+        col = thetas[valid, j]
+        order = valid[col.argsort()[::-1][:topn]]
+        result.append(order.tolist())
+    return result

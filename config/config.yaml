@@ -1,0 +1,8 @@
+# annotation units
+min_size: 10
+max_purity: 0.70   
+
+priority_weights:
+  topic_mixture:  0.5
+  size:           0.3
+  merge_balance:  0.2

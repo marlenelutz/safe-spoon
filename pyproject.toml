@@ -22,7 +22,8 @@ dependencies = [
     "requests>=2.31",
     "joblib>=1.4",
     "tqdm>=4.65",
-    "click>=8.4.1"
+    "click>=8.4.1",
+    "kneed>=0.8"
 ]
 
 [project.optional-dependencies]

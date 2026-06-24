@@ -39,3 +39,10 @@ OPENAI_API_KEY=sk-...       # required if using llm_provider="openai"
 LLM_API_KEY=                # alternative generic key (takes precedence over OPENAI_API_KEY)
 ```
 
+# TODOS
+- Remove empties, NAME_1, and queries similar with a degree of similarity larger than 90 %. DONE, annotation pending (Marlene)
+- Optimize topic models (Implemented, currently optimizing)
+- Add ticks for Marlene to annotate (Done, validation needed)
+- Generate annotation units and add them to the platform (first version ok, further validation needed)
+- Addd a second tick for demographic (done)
+- Don't show to the user those that either too long or too short (implementation based on percentiles added)

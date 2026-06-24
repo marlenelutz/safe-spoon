@@ -23,15 +23,26 @@ def most_representative(
     X: np.ndarray,
     n: int = 5,
     max_medoid: int = 200,
+    valid_mask: np.ndarray = None,
 ) -> List[int]:
-    """Return the indices of the n-most representative items among indices. Uses exact medoid search for clusters up to max_medoid items and a
-    centroid-approximation for larger clusters.
+    """Return the indices of the n-most representative items among indices. If cluster is small, uses exact medoid search; otherwise uses centroid-based approximation.
+
+    If a valid_mask is supplied, only items with valid_mask[i] == True are considered; if no valid items remain, falls back to the full set.
     """
-    if len(indices) <= n:
-        return list(indices)
+    # Apply length filter first, fall back to full set if nothing survives
+    if valid_mask is not None:
+        candidates = [i for i in indices if valid_mask[i]]
+        if not candidates:
+            candidates = list(indices)
+    else:
+        candidates = list(indices)
+
+    if len(candidates) <= n:
+        return candidates
+
     eps = 1e-10
-    vecs = X[indices]
-    if len(indices) <= max_medoid:
+    vecs = X[candidates]
+    if len(candidates) <= max_medoid:
         sq = np.sqrt(vecs + eps)
         D = -np.log(np.clip(sq @ sq.T, eps, 1.0))
         scores = D.mean(axis=1)
@@ -40,7 +51,7 @@ def most_representative(
         scores = -np.log(np.clip(
             np.sqrt(vecs + eps) @ np.sqrt(centroid + eps), eps, 1.0
         ))
-    return [indices[i] for i in np.argsort(scores)[:n]]
+    return [candidates[i] for i in np.argsort(scores)[:n]]
 
 
 def build_tree(
@@ -65,6 +76,12 @@ def build_tree(
     n_repr:
         Number of representative documents to store per internal node.
     """
+    # Build a length-validity mask from the queries in this tree (10th–90th percentile word count)
+    word_counts = np.array([len(queries[i].split()) for i in global_indices])
+    lo, hi = np.quantile(word_counts, [0.10, 0.90])
+    valid_mask = np.zeros(len(queries), dtype=bool)
+    for local_i, global_i in enumerate(global_indices):
+        valid_mask[global_i] = lo <= word_counts[local_i] <= hi
     stack = [(root_node, None, False)]
     ordered = []
     node_dict = {}
@@ -73,16 +90,16 @@ def build_tree(
         node, parent_id, is_right = stack.pop()
 
         if node.is_leaf():
-            gidx = global_indices[node.id]
+            gid = global_indices[node.id]
             d = {
-                "id": f"leaf_{gidx}",
-                "idx": gidx,
-                "name": queries[gidx][:72] + ("…" if len(queries[gidx]) > 72 else ""),
-                "full": queries[gidx],
+                "id": f"leaf_{gid}",
+                "id": gid,
+                "name": queries[gid][:72] + ("..." if len(queries[gid]) > 72 else ""),
+                "full": queries[gid],
                 "size": 1,
                 "dist": 0.0,
                 "depth": 0,
-                "repr": [gidx],
+                "repr": [gid],
                 "children": [],
                 "_parent_id": parent_id,
                 "_is_right": is_right,
@@ -113,7 +130,7 @@ def build_tree(
     for scipy_id in reversed(ordered):
         d = node_dict[scipy_id]
 
-        if not d["children"] and "idx" in d:
+        if not d["children"] and "id" in d:
             continue
 
         left_id = d.get("_left_id")
@@ -128,8 +145,8 @@ def build_tree(
         d["size"] = left["size"] + right["size"]
         d["name"] = f"{d['size']} queries"
 
-        all_idxs = _gather_leaf_indices(left) + _gather_leaf_indices(right)
-        d["repr"] = most_representative(all_idxs, X, n=n_repr)
+        all_ids = _gather_leaf_indices(left) + _gather_leaf_indices(right)
+        d["repr"] = most_representative(all_ids, X, n=n_repr, valid_mask=valid_mask)
 
     for d in node_dict.values():
         for k in ["_parent_id", "_is_right", "_scipy_id", "_left_id", "_right_id"]:
@@ -145,8 +162,8 @@ def _gather_leaf_indices(node: dict) -> List[int]:
     while stack:
         n = stack.pop()
         if not n["children"]:
-            if "idx" in n:
-                result.append(n["idx"])
+            if "id" in n:
+                result.append(n["id"])
         else:
             stack.extend(n["children"])
     return result
@@ -246,3 +263,20 @@ def cluster_by_category(
         }
 
     return trees_by_category
+
+
+def build_flat_tree(thetas, indices, queries, linkage_method="average", n_repr=5):
+    """Bhattacharyya distance -> linkage -> build_tree -> flatten_tree in one call.
+
+    Returns
+    -------
+    flat_nodes : list[dict]
+    root_id    : str
+    Z : np.ndarray
+    """
+    D = bhattacharyya_matrix(thetas)
+    Z = linkage(squareform(D, checks=False), method=linkage_method)
+    root_node, _ = to_tree(Z, rd=True)
+    tree = build_tree(root_node, indices, thetas, queries, n_repr=n_repr)
+    flat_nodes, root_id = flatten_tree(tree)
+    return flat_nodes, root_id, Z

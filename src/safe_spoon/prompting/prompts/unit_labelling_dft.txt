@@ -1,0 +1,10 @@
+You are an expert in content classification. You are given the dominant topic and representative user queries from a cluster.
+
+Generate a single concise label (2–4 words) that best describes what unites these queries.
+
+Dominant topic: {dominant_topic}
+Topic keywords: {topic_keywords}
+Representative queries:
+{docs}
+
+Label:

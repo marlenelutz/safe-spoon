@@ -118,6 +118,19 @@ def get_unique_id(prefix: str = "") -> str:
     return f"{prefix}{uuid.uuid4().hex}"
 
 
+def load_annotation_unit_config(config_path: str = "config/config.yaml") -> dict:
+    """Load annotation-unit parameters from the project config file."""
+    cfg = yaml.safe_load(open(config_path, encoding="utf-8"))
+    pw  = cfg.get("priority_weights", {})
+    return {
+        "min_size":   int(cfg.get("min_size",   10)),
+        "max_purity": float(cfg.get("max_purity", 0.70)),
+        "pw_mixture": float(pw.get("topic_mixture", 0.5)),
+        "pw_size":    float(pw.get("size",          0.3)),
+        "pw_balance": float(pw.get("merge_balance", 0.2)),
+    }
+
+
 def write_json_atomic(path: pathlib.Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
