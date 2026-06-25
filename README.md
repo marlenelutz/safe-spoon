@@ -1,6 +1,6 @@
-.. image:: https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png
-   :align: center
-   :width: 600px
+<p align="center">
+  <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="600"/>
+</p>
 ===========================
 SAFE-SPOON
 ===========================
