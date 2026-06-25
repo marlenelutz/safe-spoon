@@ -14,6 +14,7 @@ from scipy.cluster.hierarchy import fcluster
 from safe_spoon.clustering import build_flat_tree, resolve_topic_label
 from safe_spoon.utils.data_utils import corpus_for_category, load_corpus_df
 from safe_spoon.utils.renderer import save_json
+from safe_spoon.utils.common import load_annotation_unit_config
 from safe_spoon.preprocessing import SimpleTMPreprocessor
 from safe_spoon.topic_modeling import LDATopicModel
 from safe_spoon.topic_modeling.tm_model import top_docs_per_topic
@@ -52,6 +53,9 @@ N_REPR_QUERIES = 50
 N_CUT_LEVELS = 40
 LINKAGE_METHOD = "average"
 
+_cfg = load_annotation_unit_config()
+TOP_DOCS_PER_TOPIC = _cfg["ui_display"]["topic_top_docs_generated"]
+
 if __name__ == "__main__":
     log.info("Loading data from %s", INPUT_FILE)
     _, queries, labels = load_corpus_df(INPUT_FILE, content_col=CONTENT_COL, label_col=LABEL_COL)
@@ -68,7 +72,6 @@ if __name__ == "__main__":
         df_corpus_cat = corpus_for_category(queries, labels, cat)
         n = len(df_corpus_cat)
         log.info("── Category %d/%d: '%s' (%d queries)", cat_id, len(categories), cat, n)
-        import pdb; pdb.set_trace()
         if n < 2:
             log.warning("  Skipping '%s' — fewer than 2 queries", cat)
             continue
@@ -226,7 +229,7 @@ if __name__ == "__main__":
 
         tm._compute_s3()
         s3_mat = tm._s3.toarray() if tm._s3 is not None else None
-        top_docs = top_docs_per_topic(X_cat, queries_ordered, s3=s3_mat)
+        top_docs = top_docs_per_topic(X_cat, queries_ordered, topn=TOP_DOCS_PER_TOPIC, s3=s3_mat)
 
         tm.load_tpc_coords()
         tpc_coords = [list(c) for c in (tm._coords or [])]

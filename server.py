@@ -14,11 +14,13 @@ PURITY_FACTOR = _au_cfg["purity_factor"]   # max_purity = PURITY_FACTOR / K
 PW_MIXTURE = _au_cfg["pw_mixture"]
 PW_SIZE = _au_cfg["pw_size"]
 PW_BALANCE = _au_cfg["pw_balance"]
+UI_DISPLAY = _au_cfg["ui_display"]
 
 app = Flask(__name__, static_folder="static")
 
-DATA_FILE = "data/output/viz_v5_data.json"
-LABELS_FILE = "data/output/labels.csv"
+_BASE_DIR = Path(__file__).parent
+DATA_FILE = _BASE_DIR / "data/output/viz_v5_data.json"
+LABELS_FILE = _BASE_DIR / "data/output/labels.csv"
 
 _data = None
 _labels = {}
@@ -92,7 +94,11 @@ def serve_logo():
 @app.route("/api/init")
 def api_init():
     d = get_data()
-    return jsonify({"categories": d["categories"], "n_repr": d["n_repr"]})
+    return jsonify({
+        "categories": d["categories"],
+        "n_repr": d["n_repr"],
+        "ui_display": UI_DISPLAY,
+    })
 
 
 @app.route("/api/category/<path:cat>")

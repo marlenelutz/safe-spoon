@@ -74,9 +74,9 @@
       </sc-if>
 
       <div style="display: flex; background: var(--track,#e4e7e1); border-radius: 9px; padding: 3px; gap: 2px;">
-        <button onClick="{{ viewThemes }}" style="{{ tabThemesStyle }}">Themes</button>
-        <button onClick="{{ viewGroups }}" style="{{ tabGroupsStyle }}">Groups</button>
-        <button onClick="{{ viewUnits }}" style="{{ tabUnitsStyle }}">Guidelines</button>
+        <sc-if value="{{ showThemesTab }}" hint-placeholder-val="{{ true }}"><button onClick="{{ viewThemes }}" style="{{ tabThemesStyle }}">Themes</button></sc-if>
+        <sc-if value="{{ showGroupsTab }}" hint-placeholder-val="{{ true }}"><button onClick="{{ viewGroups }}" style="{{ tabGroupsStyle }}">Groups</button></sc-if>
+        <sc-if value="{{ showUnitsTab }}" hint-placeholder-val="{{ true }}"><button onClick="{{ viewUnits }}" style="{{ tabUnitsStyle }}">Guidelines</button></sc-if>
       </div>
 
       <button onClick="{{ downloadData }}" title="Download your labels & guidelines as CSV" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: inherit; letter-spacing: 0.01em;">↓ Export</button>
@@ -413,6 +413,19 @@ class Component extends DCLogic {
     this.TINTS = ['#0b758e', '#7a4f1e', '#4a6741', '#7a5c99', '#8e4a2f'];
     this.CATMETA = {};
     this.CATS = {};
+    this.UI = {
+      topic_words_max: 10,
+      theme_bars_max: 5,
+      theme_bar_min_weight: 0.08,
+      group_preview_queries: 3,
+      representative_queries_max: 40,
+      theme_typical_queries_max: 8,
+      views: {
+        themes: true,
+        groups: true,
+        guidelines: true,
+      },
+    };
     this.MIN_SIZE = 3;
     this.MAX_PURITY = 0.6;
 
@@ -438,6 +451,13 @@ class Component extends DCLogic {
   componentDidMount() {
     const catSofts = ['#d9eff3', '#f0e8d8', '#e0ecda', '#ede5f5', '#f5e5dd'];
     fetch('/api/init').then(r => r.json()).then(async init => {
+      const nextUI = { ...this.UI, ...(init.ui_display || {}) };
+      const nextViews = { ...this.UI.views, ...((init.ui_display || {}).views || {}) };
+      nextUI.views = nextViews;
+      if (!nextViews.themes && !nextViews.groups && !nextViews.guidelines) {
+        nextUI.views = { themes: true, groups: true, guidelines: true };
+      }
+      this.UI = nextUI;
       init.categories.forEach((k, i) => {
         this.CATMETA[k] = { color: this.TINTS[i % this.TINTS.length], soft: catSofts[i % catSofts.length] };
       });
@@ -468,8 +488,22 @@ class Component extends DCLogic {
         ]);
         this.CATS[cat] = this._buildCat(cat, cd, td, ud);
       }
-      this.setState({ loading: false, catKey: init.categories[0] });
+      this.setState({ loading: false, catKey: init.categories[0], view: this._firstEnabledView() });
     });
+  }
+
+  _viewEnabled(view) {
+    const v = this.UI.views || {};
+    if (view === 'units') return !!v.guidelines;
+    return !!v[view];
+  }
+
+  _firstEnabledView() {
+    const order = ['groups', 'themes', 'units'];
+    for (const view of order) {
+      if (this._viewEnabled(view)) return view;
+    }
+    return 'groups';
   }
 
   // ---------- build ----------
@@ -485,7 +519,7 @@ class Component extends DCLogic {
     const norm = (v, lo, hi) => lo === hi ? 0.5 : +(0.05 + 0.9 * (v - lo) / (hi - lo)).toFixed(3);
 
     const topics = catData.topic_labels.map((label, i) => ({
-      label, words: catData.topic_keys[i].slice(0, 10),
+      label, words: catData.topic_keys[i].slice(0, this.UI.topic_words_max),
       x: norm(coords[i][0], xlo, xhi),
       y: norm(coords[i][1], ylo, yhi),
     }));
@@ -560,7 +594,11 @@ class Component extends DCLogic {
 
   themeBars(n) {
     const cat = this.cat();
-    const ranked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w).filter(x => x.w > 0.08).slice(0, 5);
+    const ranked = n.theta
+      .map((w, j) => ({ j, w }))
+      .sort((a, b) => b.w - a.w)
+      .filter(x => x.w > this.UI.theme_bar_min_weight)
+      .slice(0, this.UI.theme_bars_max);
     if (!ranked.length) return [];
     const max = ranked[0].w;
     return ranked.map(r => ({
@@ -672,7 +710,10 @@ class Component extends DCLogic {
   }
 
   // ---------- mutations ----------
-  setView(v) { this.setState({ view: v, showGlossary: false }); }
+  setView(v) {
+    if (!this._viewEnabled(v)) return;
+    this.setState({ view: v, showGlossary: false });
+  }
   pickCat(k) {
     this.setState({ catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(), gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0 });
   }
@@ -894,7 +935,7 @@ class Component extends DCLogic {
   queryRows(node) {
     const cat = this.cat();
     const self = this;
-    return this.reprOf(node).slice(0, 40).map(qi => {
+    return this.reprOf(node).slice(0, this.UI.representative_queries_max).map(qi => {
       const l = self.getLabel(qi);
       return {
         qi, text: cat.queries[qi],
@@ -921,17 +962,21 @@ class Component extends DCLogic {
     const P = warm
       ? { bg: '#f0ede8', panel: '#faf8f5', surface: '#f3f0ea', border: '#e4ddd3', track: '#ebe5da', chip: '#e8e2d8', ink: '#1e1e1c', ink2: '#5c5750', ink3: '#8f8880', ink4: '#bbb5ae' }
       : { bg: '#e8eae6', panel: '#f7f8f6', surface: '#eef0ec', border: '#dde0da', track: '#e4e7e1', chip: '#e8eae5', ink: '#1a1e1b', ink2: '#545c55', ink3: '#8a9389', ink4: '#b8c0b9' };
+    const activeView = this._viewEnabled(s.view) ? s.view : this._firstEnabledView();
     const out = {
       accent, accentSoft,
       pBg: P.bg, pPanel: P.panel, pSurface: P.surface, pBorder: P.border, pTrack: P.track, pChip: P.chip, pInk: P.ink, pInk2: P.ink2, pInk3: P.ink3, pInk4: P.ink4,
       logoSrc: './jelly_logo4.png',
-      isGroups: s.view === 'groups', isThemes: s.view === 'themes', isUnits: s.view === 'units',
+      isGroups: activeView === 'groups', isThemes: activeView === 'themes', isUnits: activeView === 'units',
       viewGroups: () => this.setView('groups'),
       viewThemes: () => this.setView('themes'),
       viewUnits: () => this.setView('units'),
-      tabGroupsStyle: this._tab(s.view === 'groups'),
-      tabThemesStyle: this._tab(s.view === 'themes'),
-      tabUnitsStyle: this._tab(s.view === 'units'),
+      tabGroupsStyle: this._tab(activeView === 'groups'),
+      tabThemesStyle: this._tab(activeView === 'themes'),
+      tabUnitsStyle: this._tab(activeView === 'units'),
+      showGroupsTab: this._viewEnabled('groups'),
+      showThemesTab: this._viewEnabled('themes'),
+      showUnitsTab: this._viewEnabled('units'),
       downloadData: () => this.downloadData(),
       cats: Object.keys(this.CATS).map(k => ({
         key: k, label: k, color: this.CATMETA[k].color,
@@ -952,7 +997,7 @@ class Component extends DCLogic {
       const sel = s.selCluster === node.id;
       return {
         id: node.id, letter, title: this.unitLabel(node), size: node.size,
-        preview: this.reprOf(node).slice(0, 3).map(qi => ({ text: cat.queries[qi] })),
+        preview: this.reprOf(node).slice(0, this.UI.group_preview_queries).map(qi => ({ text: cat.queries[qi] })),
         selected: sel,
         onClick: () => this.selectCluster(node),
         style: 'border:1px solid ' + (sel ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (sel ? 'var(--soft,#d9eff3)' : 'transparent') + ';border-radius:9px;padding:11px 12px;margin-bottom:6px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#0b758e);' : ''),
@@ -998,7 +1043,7 @@ class Component extends DCLogic {
     const totLeaf = prev.reduce((a, v) => a + v, 0) || 1;
     out.topicCards = cat.topics.map((tp, j) => ({
       num: j + 1, label: tp.label, color: this.topicColor(j),
-      words: tp.words.slice(0, 5).map(w => ({ w })),
+      words: tp.words.slice(0, 10).map(w => ({ w })),
       pct: prev[j] / totLeaf, pctLabel: Math.round(prev[j] / totLeaf * 100) + '%',
       prevWidth: (prev[j] / Math.max.apply(null, prev) * 100).toFixed(0) + '%',
       selected: s.selTopic === j,
@@ -1042,7 +1087,7 @@ class Component extends DCLogic {
       num: tj + 1, label: cat.topics[tj].label,
       words: cat.topics[tj].words.map(w => ({ w })),
       pctLabel: Math.round(prev[tj] / totLeaf * 100) + '%',
-      queries: (cat.topDocs[tj] || []).slice(0, 8).map(qi => {
+      queries: (cat.topDocs[tj] || []).slice(0, this.UI.theme_typical_queries_max).map(qi => {
         const l = tSelf.getLabel(qi);
         return {
           qi, text: cat.queries[qi],

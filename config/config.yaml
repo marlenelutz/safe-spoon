@@ -6,3 +6,17 @@ priority_weights:
   topic_mixture: 0.5
   size: 0.3
   merge_balance: 0.2
+
+# UI display controls
+ui_display:
+  topic_words_max: 10
+  theme_bars_max: 5
+  theme_bar_min_weight: 0.1
+  group_preview_queries: 3
+  representative_queries_max: 40
+  topic_top_docs_generated: 20
+  theme_typical_queries_max: 20
+  views:
+    themes: true
+    groups: true
+    guidelines: false

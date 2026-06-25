@@ -125,17 +125,38 @@ def load_annotation_unit_config(config_path: str = "config/config.yaml") -> dict
     be parsed, so the server can always start without a config file present.
     """
     cfg: dict = {}
+    # Resolve relative paths against the project root (parent of this file's package)
+    resolved = pathlib.Path(config_path)
+    if not resolved.is_absolute():
+        _pkg_root = pathlib.Path(__file__).parent.parent.parent.parent
+        resolved = _pkg_root / config_path
     try:
-        cfg = yaml.safe_load(open(config_path, encoding="utf-8")) or {}
+        cfg = yaml.safe_load(open(resolved, encoding="utf-8")) or {}
     except FileNotFoundError:
         pass
     pw = cfg.get("priority_weights", {})
+    ui = cfg.get("ui_display", {})
+    views = ui.get("views", {})
     return {
         "min_size":      int(cfg.get("min_size",      50)),
         "purity_factor": float(cfg.get("purity_factor", 5.0)),
         "pw_mixture":    float(pw.get("topic_mixture",  0.5)),
         "pw_size":       float(pw.get("size",           0.3)),
         "pw_balance":    float(pw.get("merge_balance",  0.2)),
+        "ui_display": {
+            "topic_words_max": int(ui.get("topic_words_max", 10)),
+            "theme_bars_max": int(ui.get("theme_bars_max", 5)),
+            "theme_bar_min_weight": float(ui.get("theme_bar_min_weight", 0.08)),
+            "group_preview_queries": int(ui.get("group_preview_queries", 3)),
+            "representative_queries_max": int(ui.get("representative_queries_max", 40)),
+            "topic_top_docs_generated": int(ui.get("topic_top_docs_generated", 8)),
+            "theme_typical_queries_max": int(ui.get("theme_typical_queries_max", 8)),
+            "views": {
+                "themes": bool(views.get("themes", True)),
+                "groups": bool(views.get("groups", True)),
+                "guidelines": bool(views.get("guidelines", True)),
+            },
+        },
     }
 
 
