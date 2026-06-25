@@ -8,34 +8,58 @@
 <body>
 <x-dc>
 <helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
-  body { font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Marker Felt', cursive; background: #e8eaee; }
-  ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-thumb { background: #c7ccd4; border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #e8eae6; }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-thumb { background: #c4c8c0; border-radius: 7px; border: 2px solid transparent; background-clip: content-box; }
   ::-webkit-scrollbar-track { background: transparent; }
-  @keyframes ss-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-  textarea { font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Marker Felt', cursive; }
+  @keyframes ss-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  textarea { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+  /* Depth-rail tree rows */
+  .tree-row { position: relative; }
+  .tree-row::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    border-radius: 2px;
+    opacity: 0;
+    background: var(--accent, #0b758e);
+    transition: opacity .15s;
+  }
+  .tree-row.tree-branch::before { opacity: 0.18; }
+  .tree-row.tree-branch-d1::before { opacity: 0.18; left: 12px; }
+  .tree-row.tree-branch-d2::before { opacity: 0.18; left: 24px; }
+  .tree-row.tree-branch-d3::before { opacity: 0.15; left: 36px; }
+  .tree-row.tree-active::before { opacity: 1 !important; }
+  .tree-row:hover::before { opacity: 0.35 !important; }
+
+  /* Mono font for rank badges */
+  .mono { font-family: 'DM Mono', 'Spline Sans Mono', ui-monospace, monospace; }
 </style>
 </helmet>
-<div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#eceef1); color: var(--ink,#1f2430); overflow: hidden;">
+<div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#e8eae6); color: var(--ink,#1f2430); overflow: hidden;">
 
   <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#eef0f3;z-index:999;font-family:inherit;font-size:15px;font-weight:600;color:#6b7280;letter-spacing:0.01em;">
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#e8eae6;z-index:999;font-family:inherit;font-size:15px;font-weight:600;color:#545c55;letter-spacing:0.01em;">
       Loading data&hellip;
     </div>
   </sc-if>
 
   <!-- Header -->
-  <header style="display: flex; align-items: center; gap: 18px; padding: 14px 26px; background: var(--panel,#ffffff); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
-    <div style="display: flex; align-items: center; gap: 11px;">
+  <header style="display: flex; align-items: center; gap: 18px; padding: 11px 22px; background: var(--panel,#f7f8f6); border-bottom: 1px solid var(--border,#dde0da); flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 10px;">
       <div style="display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative;">
-        <img src="./jelly_logo4.png" alt="safe spoon logo" style="height: 40px; width: auto; display: block;">
+        <img src="./jelly_logo4.png" alt="safe spoon logo" style="height: 36px; width: auto; display: block;">
       </div>
-      <div style="line-height: 1.1;">
-        <div style="font-size: 16px; font-weight: 800; letter-spacing: -0.02em;">safe-spoon</div>
-        <div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 500;">A human-in-the-loop safety guideline annotation tool</div>
+      <div style="line-height: 1.2;">
+        <div style="font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink,#1a1e1b);">safe-spoon</div>
+        <div style="font-size: 11px; color: var(--ink3,#8a9389); font-weight: 400; letter-spacing: 0.005em;">Safety guideline annotation</div>
       </div>
     </div>
 
@@ -43,25 +67,25 @@
       <sc-if value="{{ isUnits }}" hint-placeholder-val="{{ true }}">
         <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ink2,#6b7280); font-weight: 600;">
           <div style="width: 92px; height: 7px; border-radius: 7px; background: var(--border,#e3e6eb); overflow: hidden;">
-            <div style="height: 100%; width: {{ progressPct }}; background: var(--accent, #2f63d6); border-radius: 7px; transition: width .3s ease;"></div>
+            <div style="height: 100%; width: {{ progressPct }}; background: var(--accent, #0b758e); border-radius: 7px; transition: width .3s ease;"></div>
           </div>
           <span>{{ unitProgressText }}</span>
         </div>
       </sc-if>
 
-      <div style="display: flex; background: var(--track,#eceef2); border-radius: 11px; padding: 3px; gap: 2px;">
-        <button onClick="{{ viewGroups }}" style="{{ tabGroupsStyle }}">Groups</button>
+      <div style="display: flex; background: var(--track,#e4e7e1); border-radius: 9px; padding: 3px; gap: 2px;">
         <button onClick="{{ viewThemes }}" style="{{ tabThemesStyle }}">Themes</button>
+        <button onClick="{{ viewGroups }}" style="{{ tabGroupsStyle }}">Groups</button>
         <button onClick="{{ viewUnits }}" style="{{ tabUnitsStyle }}">Guidelines</button>
       </div>
 
-      <button onClick="{{ downloadData }}" title="Download your labels & guidelines as CSV" style="border: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); color: var(--ink2,#6b7280); font-weight: 600; font-size: 12px; padding: 7px 13px; border-radius: 9px; cursor: pointer; font-family: inherit;">&#8595; Export</button>
+      <button onClick="{{ downloadData }}" title="Download your labels & guidelines as CSV" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: inherit; letter-spacing: 0.01em;">↓ Export</button>
     </div>
   </header>
 
   <!-- Category tabs -->
-  <nav style="display: flex; align-items: center; gap: 4px; padding: 0 24px; background: var(--panel,#ffffff); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
-    <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; margin-right: 8px;">Domain</span>
+  <nav style="display: flex; align-items: center; gap: 4px; padding: 0 22px; background: var(--panel,#f7f8f6); border-bottom: 1px solid var(--border,#dde0da); flex-shrink: 0;">
+    <span style="font-size: 10px; color: var(--ink4,#b8c0b9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px;">Domain</span>
     <sc-for list="{{ cats }}" as="c" hint-placeholder-count="2">
       <button onClick="{{ c.onClick }}" style="{{ c.style }}">
         <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ c.color }}; display: inline-block;"></span>
@@ -73,82 +97,85 @@
   <!-- ============ GROUPS VIEW ============ -->
   <sc-if value="{{ isGroups }}" hint-placeholder-val="{{ true }}">
   <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-    <div style="padding: 14px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); display: flex; align-items: center; gap: 20px; flex-shrink: 0; flex-wrap: wrap;">
-      <div style="max-width: 360px;">
-        <div style="font-size: 13px; font-weight: 700;">How finely should we group the queries?</div>
-        <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-top: 1px;">{{ granDesc }}</div>
+    <div style="padding: 12px 22px; background: var(--panel,#f7f8f6); border-bottom: 1px solid var(--border,#dde0da); display: flex; align-items: center; gap: 20px; flex-shrink: 0; flex-wrap: wrap;">
+      <div style="max-width: 340px;">
+        <div style="font-size: 12.5px; font-weight: 600; color: var(--ink,#1a1e1b);">How finely should we group the queries?</div>
+        <div style="font-size: 11.5px; color: var(--ink3,#8a9389); margin-top: 2px;">{{ granDesc }}</div>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 280px; max-width: 460px;">
-        <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600; white-space: nowrap;">Fewer, broader</span>
-        <input type="range" min="2" max="{{ sliderMax }}" value="{{ gran }}" onInput="{{ onSlider }}" style="flex: 1; accent-color: var(--accent, #2f63d6); cursor: pointer;">
-        <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600; white-space: nowrap;">More, smaller</span>
+      <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 260px; max-width: 420px;">
+        <span style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 500; white-space: nowrap;">Fewer</span>
+        <input type="range" min="2" max="{{ sliderMax }}" value="{{ gran }}" onInput="{{ onSlider }}" style="flex: 1; accent-color: var(--accent, #0b758e); cursor: pointer;">
+        <span style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 500; white-space: nowrap;">More</span>
       </div>
-      <div style="background: var(--soft, #e8edfb); color: var(--accent, #2f63d6); font-weight: 700; font-size: 13px; padding: 6px 15px; border-radius: 99px;">{{ clusterCount }} groups</div>
+      <div style="background: var(--soft, #d9eff3); color: var(--accent, #0b758e); font-weight: 600; font-size: 12px; padding: 5px 13px; border-radius: 99px;">{{ clusterCount }} groups</div>
     </div>
 
     <div style="flex: 1; display: flex; overflow: hidden;">
-      <!-- cluster list -->
-      <div style="width: 340px; flex-shrink: 0; border-right: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto; padding: 12px;">
+      <!-- Col 1: cluster list -->
+      <div style="width: 252px; flex-shrink: 0; border-right: 1px solid var(--border,#dde0da); background: var(--panel,#f7f8f6); overflow-y: auto; padding: 8px;">
         <sc-for list="{{ clusters }}" as="cl" hint-placeholder-count="4">
           <div onClick="{{ cl.onClick }}" style="{{ cl.style }}">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 7px;">
-              <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 13px; color: var(--accent, #2f63d6); background: var(--soft, #e8edfb); width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">{{ cl.letter }}</span>
-              <span style="font-size: 13px; font-weight: 700; flex: 1;">{{ cl.title }}</span>
-              <span style="font-size: 11px; font-weight: 700; color: var(--ink3,#98a0ab);">{{ cl.size }}</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="mono" style="font-weight: 600; font-size: 11px; color: var(--accent, #0b758e); background: var(--soft, #d9eff3); width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{ cl.letter }}</span>
+              <span style="font-size: 12px; font-weight: 600; flex: 1; line-height: 1.3; color: var(--ink,#1a1e1b);">{{ cl.title }}</span>
+              <span style="font-size: 10.5px; font-weight: 600; color: var(--ink4,#b8c0b9); flex-shrink: 0;">{{ cl.size }}</span>
             </div>
             <sc-for list="{{ cl.preview }}" as="p" hint-placeholder-count="2">
-              <div style="font-size: 11.5px; color: var(--ink2,#6b7280); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">&middot; {{ p.text }}</div>
+              <div style="font-size: 11px; color: var(--ink3,#8a9389); line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 30px;">· {{ p.text }}</div>
             </sc-for>
           </div>
         </sc-for>
       </div>
 
-      <!-- cluster detail -->
-      <div style="flex: 1; overflow-y: auto; min-width: 0;">
+      <!-- Col 2: subgroup tree -->
+      <div style="width: 300px; flex-shrink: 0; border-right: 1px solid var(--border,#dde0da); background: var(--surface,#eef0ec); display: flex; flex-direction: column; overflow: hidden;">
+        <div style="padding: 10px 14px 8px; background: var(--panel,#f7f8f6); border-bottom: 1px solid var(--border,#dde0da); flex-shrink: 0;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink4,#b8c0b9); margin-bottom: 5px;">Sub-groups</div>
+          <div style="display: flex; align-items: center; gap: 3px; flex-wrap: wrap; min-height: 18px;">
+            <sc-for list="{{ gDetail.breadcrumb }}" as="b" hint-placeholder-count="1">
+              <span onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</span>
+              <sc-if value="{{ b.sep }}" hint-placeholder-val="{{ false }}"><span style="color: var(--ink4,#b8c0b9); font-size: 10px; margin: 0 1px;">›</span></sc-if>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 6px 0;">
+          <sc-if value="{{ clusterSelected }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ gDetail.treeRows }}" as="r" hint-placeholder-count="4">
+              <div style="{{ r.rowStyle }}" class="{{ r.rowClass }}">
+                <span onClick="{{ r.onToggle }}" style="{{ r.toggleStyle }}">{{ r.toggle }}</span>
+                <span onClick="{{ r.onFocus }}" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; font-size: 12px;">{{ r.label }}</span>
+                <span style="font-size: 10px; color: var(--ink4,#b8c0b9); font-weight: 600; flex-shrink: 0; margin-left: 4px;">{{ r.size }}</span>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ noCluster }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 24px 12px; font-size: 12px; color: var(--ink4,#bcc2cc); line-height: 1.7;">Select a group on the left to explore its sub-structure.</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- Col 3: queries -->
+      <div style="flex: 1; overflow-y: auto; min-width: 0; background: var(--panel,#ffffff);">
         <sc-if value="{{ clusterSelected }}" hint-placeholder-val="{{ true }}">
-          <div style="padding: 22px 28px; animation: ss-fade .25s ease;">
-            <!-- breadcrumb -->
-            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
-              <sc-for list="{{ gDetail.breadcrumb }}" as="b" hint-placeholder-count="1">
-                <span onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</span>
-                <sc-if value="{{ b.sep }}" hint-placeholder-val="{{ false }}"><span style="color: var(--ink4,#bcc2cc); font-size: 12px;">&rsaquo;</span></sc-if>
-              </sc-for>
-            </div>
-            <h2 style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px;">{{ gDetail.title }}</h2>
-            <div style="font-size: 13px; color: var(--ink3,#98a0ab); margin-bottom: 18px;">{{ gDetail.subtitle }}</div>
-
-            <!-- theme mix -->
-            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">What this group is mostly about</div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-width: 560px;">
-              <sc-for list="{{ gDetail.themeBars }}" as="t" hint-placeholder-count="3">
+          <div style="padding: 20px 24px; animation: ss-fade .25s ease;">
+            <h2 style="font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 3px; color: var(--ink,#1a1e1b);">{{ gDetail.title }}</h2>
+            <div style="font-size: 12.5px; color: var(--ink3,#98a0ab); margin-bottom: 14px;">{{ gDetail.subtitle }}</div>
+            <div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; max-width: 460px;">
+              <sc-for list="{{ gDetail.themeBars }}" as="t" hint-placeholder-count="2">
                 <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;"><span style="font-weight: 600; color: var(--ink,#1f2430);">{{ t.label }}</span><span style="font-weight: 700; color: var(--ink2,#6b7280);">{{ t.pct }}</span></div>
-                  <div style="height: 8px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 6px;"></div></div>
+                  <div style="display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 3px;"><span style="font-weight: 600; color: var(--ink,#1f2430);">{{ t.label }}</span><span style="font-weight: 700; color: var(--ink2,#6b7280);">{{ t.pct }}</span></div>
+                  <div style="height: 6px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 6px;"></div></div>
                 </div>
               </sc-for>
             </div>
-
-            <!-- subgroup tree -->
-            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">Zoom into sub-groups <span style="font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink4,#bcc2cc);">&mdash; click to focus the queries below</span></div>
-            <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 12px; padding: 6px; margin-bottom: 22px; max-width: 620px;">
-              <sc-for list="{{ gDetail.treeRows }}" as="r" hint-placeholder-count="3">
-                <div style="{{ r.rowStyle }}">
-                  <span onClick="{{ r.onToggle }}" style="{{ r.toggleStyle }}">{{ r.toggle }}</span>
-                  <span onClick="{{ r.onFocus }}" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.label }}</span>
-                  <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; flex-shrink: 0;">{{ r.size }}</span>
-                </div>
-              </sc-for>
-            </div>
-
-            <!-- queries -->
-            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">{{ gDetail.queryHeader }}</div>
-            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
+            <div style="font-size: 10.5px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">{{ gDetail.queryHeader }}</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 720px;">
               <sc-for list="{{ gDetail.queries }}" as="q" hint-placeholder-count="4">
-                <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
+                <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
                   <div style="display: flex; gap: 8px; margin-top: 9px;">
-                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
-                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
+                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
                   </div>
                 </div>
               </sc-for>
@@ -226,8 +253,8 @@
       <div style="width: 400px; flex-shrink: 0; border-left: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto;">
         <sc-if value="{{ topicSelected }}" hint-placeholder-val="{{ true }}">
           <div style="padding: 22px 24px; animation: ss-fade .25s ease;">
-            <div style="font-size: 10px; font-weight: 700; color: var(--accent, #2f63d6); text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tDetail.num }}</div>
-            <h2 style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 12px;">{{ tDetail.label }}</h2>
+            <div style="font-size: 10px; font-weight: 700; color: var(--accent, #0b758e); text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tDetail.num }}</div>
+            <h2 style="font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 12px; color: var(--ink,#1a1e1b);">{{ tDetail.label }}</h2>
             <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;">
               <sc-for list="{{ tDetail.words }}" as="w" hint-placeholder-count="6">
                 <span style="background: var(--chip,#eef0f4); border-radius: 6px; padding: 3px 9px; font-size: 11.5px; color: var(--ink2,#6b7280);">{{ w.w }}</span>
@@ -237,7 +264,13 @@
             <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">Typical queries</div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <sc-for list="{{ tDetail.queries }}" as="q" hint-placeholder-count="4">
-                <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
+                <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 11px 13px;">
+                  <div style="font-size: 13px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
+                  <div style="display: flex; gap: 8px; margin-top: 9px;">
+                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
+                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  </div>
+                </div>
               </sc-for>
             </div>
           </div>
@@ -251,49 +284,49 @@
   <sc-if value="{{ isUnits }}" hint-placeholder-val="{{ false }}">
   <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     <sc-if value="{{ showIntro }}" hint-placeholder-val="{{ true }}">
-      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 14px 26px; background: var(--soft, #e8edfb); border-bottom: 1px solid var(--border,#e3e6eb);">
-        <div style="font-size: 13px; line-height: 1.6; color: var(--ink,#1f2430); max-width: 900px;">
-          <strong>Your job here.</strong> Each card below is a group of similar queries, sized to be just right for writing <strong>one safety guideline</strong> &mdash; not so broad it covers everything, not so narrow it&rsquo;s a single query. Work through them top to bottom: the ones at the top are the most <em>mixed</em> and sensitive, so they need your attention first. Open a group, read its queries, then write the guideline that tells an annotator how to handle them safely.
+      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 22px; background: var(--soft, #d9eff3); border-bottom: 1px solid var(--border,#dde0da);">
+        <div style="font-size: 12.5px; line-height: 1.65; color: var(--ink,#1a1e1b); max-width: 860px;">
+          <strong style="font-weight: 600;">Your job here.</strong> Each card below is a group of similar queries, sized to be just right for writing <strong style="font-weight: 600;">one safety guideline</strong>, i.e., not so broad it covers everything, not so narrow it's a single query. Work through them top to bottom: the ones at the top are the most <em>mixed</em> and sensitive, so they need your attention first. Open a group, read its queries, then write the guideline that tells an annotator how to handle them safely.
         </div>
-        <button onClick="{{ dismissIntro }}" style="margin-left: auto; border: none; background: none; cursor: pointer; font-size: 16px; color: var(--accent,#2f63d6); flex-shrink: 0; line-height: 1;">&times;</button>
+        <button onClick="{{ dismissIntro }}" style="margin-left: auto; border: none; background: none; cursor: pointer; font-size: 16px; color: var(--ink3,#8a9389); flex-shrink: 0; line-height: 1;">&times;</button>
       </div>
     </sc-if>
 
-    <div style="display: flex; align-items: center; gap: 14px; padding: 9px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
-      <div style="display: flex; background: var(--track,#eceef2); border-radius: 9px; padding: 3px; gap: 2px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 8px 22px; background: var(--panel,#f7f8f6); border-bottom: 1px solid var(--border,#dde0da); flex-shrink: 0;">
+      <div style="display: flex; background: var(--track,#e4e7e1); border-radius: 8px; padding: 3px; gap: 2px;">
         <button onClick="{{ modeTree }}" style="{{ unitTreeTabStyle }}">By hierarchy</button>
         <button onClick="{{ modePriority }}" style="{{ unitPriorityTabStyle }}">By priority</button>
       </div>
-      <div style="font-size: 12px; color: var(--ink3,#98a0ab);">{{ unitModeHint }}</div>
+      <div style="font-size: 11.5px; color: var(--ink3,#8a9389);">{{ unitModeHint }}</div>
     </div>
 
     <div style="flex: 1; display: flex; overflow: hidden;">
       <!-- left: tree or priority list -->
-      <div style="width: 380px; flex-shrink: 0; border-right: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto; padding: 12px;">
+      <div style="width: 380px; flex-shrink: 0; border-right: 1px solid var(--border,#dde0da); background: var(--panel,#f7f8f6); overflow-y: auto; padding: 8px 0;">
         <sc-if value="{{ isTree }}" hint-placeholder-val="{{ true }}">
           <sc-for list="{{ unitTreeRows }}" as="r" hint-placeholder-count="6">
-            <div style="{{ r.rowStyle }}">
+            <div style="{{ r.rowStyle }}" class="{{ r.rowClass }}">
               <span onClick="{{ r.onToggle }}" style="{{ r.toggleStyle }}">{{ r.toggle }}</span>
               <sc-if value="{{ r.isUnit }}" hint-placeholder-val="{{ false }}">
-                <span onClick="{{ r.onClick }}" style="{{ r.badgeStyle }}">{{ r.rank }}</span>
+                <span onClick="{{ r.onClick }}" style="{{ r.badgeStyle }}" class="mono">{{ r.rank }}</span>
               </sc-if>
               <span onClick="{{ r.onClick }}" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: {{ r.fontSize }}; font-weight: {{ r.weight }}; color: {{ r.textColor }};">{{ r.label }}</span>
               <sc-if value="{{ r.isUnit }}" hint-placeholder-val="{{ false }}"><span style="{{ r.statusDot }}"></span></sc-if>
-              <span style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; flex-shrink: 0;">{{ r.size }}</span>
+              <span style="font-size: 10px; color: var(--ink4,#b8c0b9); font-weight: 600; flex-shrink: 0;">{{ r.size }}</span>
             </div>
           </sc-for>
         </sc-if>
         <sc-if value="{{ isPriority }}" hint-placeholder-val="{{ false }}">
           <sc-for list="{{ priorityList }}" as="u" hint-placeholder-count="5">
             <div onClick="{{ u.onClick }}" style="{{ u.style }}">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 12px; color: var(--panel,#ffffff); background: var(--accent, #2f63d6); min-width: 24px; height: 24px; padding: 0 6px; border-radius: 7px; display: flex; align-items: center; justify-content: center;">{{ u.rank }}</span>
-                <span style="font-size: 13.5px; font-weight: 700; flex: 1; line-height: 1.3;">{{ u.label }}</span>
+              <div style="display: flex; align-items: center; gap: 9px;">
+                <span class="mono" style="font-weight: 600; font-size: 11px; color: var(--panel,#f7f8f6); background: var(--accent, #0b758e); min-width: 22px; height: 22px; padding: 0 5px; border-radius: 5px; display: flex; align-items: center; justify-content: center;">{{ u.rank }}</span>
+                <span style="font-size: 13px; font-weight: 600; flex: 1; line-height: 1.3; color: var(--ink,#1a1e1b);">{{ u.label }}</span>
                 <span style="{{ u.statusChip }}">{{ u.statusLabel }}</span>
               </div>
-              <div style="display: flex; gap: 14px; margin-top: 8px; margin-left: 34px;">
-                <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">{{ u.size }} queries</span>
-                <span style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">{{ u.diversity }} mixed</span>
+              <div style="display: flex; gap: 14px; margin-top: 7px; margin-left: 31px;">
+                <span style="font-size: 11px; color: var(--ink3,#8a9389); font-weight: 500;">{{ u.size }} queries</span>
+                <span style="font-size: 11px; color: var(--ink3,#8a9389); font-weight: 500;">{{ u.diversity }} mixed</span>
               </div>
             </div>
           </sc-for>
@@ -301,52 +334,50 @@
       </div>
 
       <!-- right: unit detail + guideline composer -->
-      <div style="flex: 1; overflow-y: auto; min-width: 0;">
+      <div style="flex: 1; overflow-y: auto; min-width: 0; background: var(--bg,#e8eae6);">
         <sc-if value="{{ unitSelected }}" hint-placeholder-val="{{ true }}">
-          <div style="padding: 22px 28px; animation: ss-fade .25s ease; max-width: 820px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-              <span style="font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 12px; color: var(--panel,#ffffff); background: var(--accent, #2f63d6); padding: 3px 9px; border-radius: 7px;">Priority {{ uDetail.rank }}</span>
+          <div style="padding: 24px 28px; animation: ss-fade .25s ease; max-width: 780px;">
+            <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 8px;">
+              <span class="mono" style="font-weight: 600; font-size: 11px; color: var(--panel,#f7f8f6); background: var(--accent, #0b758e); padding: 3px 8px; border-radius: 5px; letter-spacing: 0.02em;">Priority {{ uDetail.rank }}</span>
               <span style="{{ uDetail.statusChip }}">{{ uDetail.statusLabel }}</span>
             </div>
-            <h2 style="font-size: 23px; font-weight: 800; letter-spacing: -0.02em; margin: 6px 0 4px;">{{ uDetail.label }}</h2>
-            <div style="font-size: 13px; color: var(--ink3,#98a0ab); margin-bottom: 18px;">A group of {{ uDetail.size }} similar queries selected as the right scope for one guideline.</div>
+            <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; color: var(--ink,#1a1e1b);">{{ uDetail.label }}</h2>
+            <div style="font-size: 12.5px; color: var(--ink3,#8a9389); margin-bottom: 20px;">{{ uDetail.size }} similar queries · one guideline</div>
 
             <!-- plain-language stats -->
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
-              <div style="background: var(--soft, #e8edfb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800; color: var(--accent, #2f63d6);">{{ uDetail.size }}</div><div style="font-size: 11px; color: var(--ink2,#6b7280); font-weight: 600;">queries</div></div>
-              <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800;">{{ uDetail.diversity }}</div><div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">theme mix</div></div>
-              <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 9px 14px;"><div style="font-size: 18px; font-weight: 800;">{{ uDetail.priority }}</div><div style="font-size: 11px; color: var(--ink3,#98a0ab); font-weight: 600;">urgency</div></div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+              <div style="background: var(--soft, #d9eff3); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--accent, #0b758e);">{{ uDetail.size }}</div><div style="font-size: 10.5px; color: var(--ink2,#545c55); font-weight: 500; margin-top: 1px;">queries</div></div>
+              <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ uDetail.diversity }}</div><div style="font-size: 10.5px; color: var(--ink3,#8a9389); font-weight: 500; margin-top: 1px;">theme mix</div></div>
+              <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ uDetail.priority }}</div><div style="font-size: 10.5px; color: var(--ink3,#8a9389); font-weight: 500; margin-top: 1px;">urgency</div></div>
             </div>
-            <div style="margin-bottom: 20px;">
-              <span onClick="{{ toggleGlossary }}" style="font-size: 12px; color: var(--accent, #2f63d6); font-weight: 600; cursor: pointer;">{{ glossaryToggleLabel }}</span>
+            <div style="margin-bottom: 22px;">
+              <span onClick="{{ toggleGlossary }}" style="font-size: 11.5px; color: var(--accent, #0b758e); font-weight: 500; cursor: pointer;">{{ glossaryToggleLabel }}</span>
               <sc-if value="{{ showGlossary }}" hint-placeholder-val="{{ false }}">
-                <div style="margin-top: 8px; background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 13px 15px; font-size: 12.5px; line-height: 1.65; color: var(--ink2,#6b7280);">
-                  <div><strong style="color: var(--ink,#1f2430);">Theme mix</strong> &mdash; how varied the queries are. A high mix means the group covers several topics, so its guideline needs to cover more ground.</div>
-                  <div style="margin-top: 6px;"><strong style="color: var(--ink,#1f2430);">Urgency</strong> &mdash; how soon this group should get a guideline. It&rsquo;s higher when the group is big, varied, and was formed from two evenly-sized halves.</div>
+                <div style="margin-top: 8px; background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 12px 14px; font-size: 12px; line-height: 1.65; color: var(--ink2,#545c55);">
+                  <div><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Theme mix</strong> — how varied the queries are. A high mix means the group covers several topics, so its guideline needs to cover more ground.</div>
+                  <div style="margin-top: 5px;"><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Urgency</strong> — how soon this group should get a guideline. It's higher when the group is big, varied, and was formed from two evenly-sized halves.</div>
                 </div>
               </sc-if>
             </div>
 
             <!-- guideline composer -->
-            <div style="background: var(--panel,#ffffff); border: 2px solid var(--soft, #e8edfb); border-radius: 14px; padding: 18px; margin-bottom: 24px;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <h3 style="font-size: 15px; font-weight: 800; margin: 0;">Safety guideline for this group</h3>
-              </div>
-              <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-bottom: 11px;">Write how an annotator should handle these queries safely. This is saved automatically.</div>
-              <textarea value="{{ uDetail.guideline }}" onChange="{{ onGuidelineInput }}" onInput="{{ onGuidelineInput }}" placeholder="e.g. These are genuine health questions. Flag any that ask for diagnosis or dosing as needing a medical disclaimer&hellip;" style="width: 100%; min-height: 120px; resize: vertical; border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 12px 13px; font-size: 13.5px; line-height: 1.6; color: var(--ink,#1f2430); background: var(--surface,#f5f6f8); outline: none;"></textarea>
-              <div style="display: flex; gap: 9px; margin-top: 11px; align-items: center;">
-                <button onClick="{{ suggestDraft }}" style="border: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); color: var(--ink,#1f2430); font-weight: 700; font-size: 12.5px; padding: 8px 14px; border-radius: 9px; cursor: pointer; font-family: inherit;">&#10024; Suggest a draft</button>
+            <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-left: 3px solid var(--accent,#0b758e); border-radius: 10px; padding: 16px 18px; margin-bottom: 26px;">
+              <h3 style="font-size: 13.5px; font-weight: 600; margin: 0 0 3px; color: var(--ink,#1a1e1b);">Safety guideline</h3>
+              <div style="font-size: 11.5px; color: var(--ink3,#8a9389); margin-bottom: 11px;">Write how an annotator should handle these queries safely. Saved automatically.</div>
+              <textarea value="{{ uDetail.guideline }}" onChange="{{ onGuidelineInput }}" onInput="{{ onGuidelineInput }}" placeholder="e.g. These are genuine health questions. Flag any that ask for diagnosis or dosing as needing a medical disclaimer…" style="width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--border,#dde0da); border-radius: 8px; padding: 11px 12px; font-size: 13px; line-height: 1.6; color: var(--ink,#1a1e1b); background: var(--surface,#eef0ec); outline: none;"></textarea>
+              <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
+                <button onClick="{{ suggestDraft }}" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">✦ Suggest a draft</button>
                 <button onClick="{{ markDone }}" style="{{ markDoneStyle }}">{{ markDoneLabel }}</button>
               </div>
             </div>
 
             <!-- dominant theme + representative queries -->
-            <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 9px;">Mostly about</div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-width: 560px;">
+            <div style="font-size: 10px; color: var(--ink4,#b8c0b9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 9px;">Mostly about</div>
+            <div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 22px; max-width: 560px;">
               <sc-for list="{{ uDetail.themeBars }}" as="t" hint-placeholder-count="2">
                 <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;"><span style="font-weight: 600; color: var(--ink,#1f2430);">{{ t.label }}</span><span style="font-weight: 700; color: var(--ink2,#6b7280);">{{ t.pct }}</span></div>
-                  <div style="height: 8px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 6px;"></div></div>
+                  <div style="display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 3px;"><span style="font-weight: 500; color: var(--ink,#1a1e1b);">{{ t.label }}</span><span style="font-weight: 600; color: var(--ink2,#545c55);">{{ t.pct }}</span></div>
+                  <div style="height: 5px; background: var(--border,#dde0da); border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: {{ t.width }}; background: {{ t.color }}; border-radius: 4px;"></div></div>
                 </div>
               </sc-for>
             </div>
@@ -357,8 +388,8 @@
                 <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
                   <div style="display: flex; gap: 8px; margin-top: 9px;">
-                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
-                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #2f63d6); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
+                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
                   </div>
                 </div>
               </sc-for>
@@ -379,7 +410,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.TINTS = ['#2f6b4f', '#b9762f', '#3f6cc4', '#9a5bbf', '#c2503f'];
+    this.TINTS = ['#0b758e', '#7a4f1e', '#4a6741', '#7a5c99', '#8e4a2f'];
     this.CATMETA = {};
     this.CATS = {};
     this.MIN_SIZE = 3;
@@ -394,7 +425,7 @@ class Component extends DCLogic {
       gran: 4,
       selCluster: null, focus: null, cCollapsed: new Set(),
       selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null,
-      uMode: 'tree', selUnit: null, uCollapsed: new Set(),
+      uMode: 'priority', selUnit: null, uCollapsed: new Set(),
       showIntro: true, showGlossary: false,
       labels, guides,
     };
@@ -405,24 +436,44 @@ class Component extends DCLogic {
   _save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
   componentDidMount() {
-    const catSofts = ['#e7f0ea', '#f3eee7', '#e8eef9', '#f2eef8', '#f9eded'];
+    const catSofts = ['#d9eff3', '#f0e8d8', '#e0ecda', '#ede5f5', '#f5e5dd'];
     fetch('/api/init').then(r => r.json()).then(async init => {
       init.categories.forEach((k, i) => {
         this.CATMETA[k] = { color: this.TINTS[i % this.TINTS.length], soft: catSofts[i % catSofts.length] };
       });
+
+      // Load labels from server (authoritative) and merge over localStorage copy
+      const serverRaw = await fetch('/api/labels').then(r => r.json());
+      const serverLabels = {};
+      for (const [key, val] of Object.entries(serverRaw)) {
+        const sep = key.lastIndexOf(':');
+        const cat = key.slice(0, sep);
+        const qi  = key.slice(sep + 1);
+        if (!serverLabels[cat]) serverLabels[cat] = {};
+        serverLabels[cat][qi] = val;
+      }
+      const localLabels = this._load('safespoon.labels', {});
+      const mergedLabels = { ...localLabels };
+      for (const [cat, qs] of Object.entries(serverLabels)) {
+        mergedLabels[cat] = { ...(mergedLabels[cat] || {}), ...qs };
+      }
+      this._save('safespoon.labels', mergedLabels);
+      this.setState({ labels: mergedLabels });
+
       for (const cat of init.categories) {
-        const [cd, td] = await Promise.all([
-          fetch('/api/category/' + encodeURIComponent(cat)).then(r => r.json()),
-          fetch('/api/tree/'     + encodeURIComponent(cat)).then(r => r.json()),
+        const [cd, td, ud] = await Promise.all([
+          fetch('/api/category/'         + encodeURIComponent(cat)).then(r => r.json()),
+          fetch('/api/tree/'             + encodeURIComponent(cat)).then(r => r.json()),
+          fetch('/api/annotation_units/' + encodeURIComponent(cat)).then(r => r.json()),
         ]);
-        this.CATS[cat] = this._buildCat(cat, cd, td);
+        this.CATS[cat] = this._buildCat(cat, cd, td, ud);
       }
       this.setState({ loading: false, catKey: init.categories[0] });
     });
   }
 
   // ---------- build ----------
-  _buildCat(key, catData, treeData) {
+  _buildCat(key, catData, treeData, unitData) {
     const T = catData.topic_labels.length;
     const queries = catData.queries;
     const thetas  = catData.thetas;
@@ -434,7 +485,7 @@ class Component extends DCLogic {
     const norm = (v, lo, hi) => lo === hi ? 0.5 : +(0.05 + 0.9 * (v - lo) / (hi - lo)).toFixed(3);
 
     const topics = catData.topic_labels.map((label, i) => ({
-      label, words: catData.topic_keys[i].slice(0, 7),
+      label, words: catData.topic_keys[i].slice(0, 10),
       x: norm(coords[i][0], xlo, xhi),
       y: norm(coords[i][1], ylo, yhi),
     }));
@@ -488,7 +539,8 @@ class Component extends DCLogic {
       }
     }
 
-    return { key, topics, queries, root: byId[rootKey], byId, qiToTopic };
+    const unitTree = (unitData && unitData.unit_tree) ? unitData.unit_tree : null;
+    return { key, topics, queries, root: byId[rootKey], byId, qiToTopic, unitTree, topDocs: catData.top_docs || [] };
   }
 
   cat() { return this.CATS[this.state.catKey]; }
@@ -536,9 +588,47 @@ class Component extends DCLogic {
   // ---------- units ----------
   unitData() {
     const cat = this.cat();
-    const self = this;
 
-    // Iterative DFS: build unit tree and collect leaf units without recursion
+    // Use backend-computed unit tree (correct algorithm, config-driven thresholds).
+    if (cat.unitTree && cat.unitTree.nodes) {
+      const ut = cat.unitTree;
+      const objById = {};
+      for (const n of ut.nodes) {
+        const nid = String(n.node_id);
+        const catNode = cat.byId[nid] || {
+          id: nid, size: n.size, theta: n.mean_theta || [],
+          dominant_weight: n.dominant_weight, dominant_topic: n.dominant_topic,
+          topic_mixture: n.topic_mixture, merge_balance: n.merge_balance,
+          repr: n.repr || [], leaf: false,
+        };
+        objById[nid] = {
+          id: nid, unit: !!n.is_unit, branch: !n.is_unit,
+          node: catNode, children: [],
+          priority: n.priority || 0, priority_rank: n.priority_rank || 0,
+        };
+      }
+      // Link children (only branch nodes have children_ids in the unit tree)
+      for (const n of ut.nodes) {
+        if (!n.is_unit && n.children_ids) {
+          const obj = objById[String(n.node_id)];
+          obj.children = n.children_ids.map(cid => objById[String(cid)]).filter(Boolean);
+        }
+      }
+      const tree = objById[String(ut.root_id)];
+      const units = [];
+      const colStack = [tree];
+      while (colStack.length) {
+        const x = colStack.pop();
+        if (x.unit) { units.push(x); }
+        else { for (let i = x.children.length - 1; i >= 0; i--) colStack.push(x.children[i]); }
+      }
+      const rankById = {};
+      units.forEach(u => { rankById[u.id] = u.priority_rank; });
+      return { tree, units, rankById };
+    }
+
+    // Fallback: local computation (used only when backend data is unavailable)
+    const self = this;
     const unitNodes = {};
     const dfsStack = [[cat.root.id, null]];
     while (dfsStack.length) {
@@ -553,7 +643,6 @@ class Component extends DCLogic {
       }
     }
     const tree = unitNodes[cat.root.id];
-
     const units = [];
     const colStack = [tree];
     while (colStack.length) {
@@ -628,6 +717,12 @@ class Component extends DCLogic {
     labels[ck][qi][field] = val;
     this.setState({ labels });
     this._save('safespoon.labels', labels);
+    const l = labels[ck][qi];
+    fetch('/api/labels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cat: ck, gi: Number(qi), trash: l.trash, demo: l.demo }),
+    });
   }
   getLabel(qi) { return ((this.state.labels[this.state.catKey] || {})[qi]) || { trash: false, demo: false }; }
 
@@ -656,39 +751,38 @@ class Component extends DCLogic {
   }
 
   downloadData() {
-    const rows = [['domain', 'kind', 'id', 'value']];
-    Object.keys(this.state.labels).forEach(ck => {
-      Object.keys(this.state.labels[ck]).forEach(qi => {
-        const l = this.state.labels[ck][qi];
-        rows.push([ck, 'label', 'q' + qi, 'trash=' + l.trash + ';demo=' + l.demo]);
+    // Labels come from the server CSV (has real query_id and text).
+    // Guidelines are client-side only, appended after.
+    fetch('/api/labels/export').then(r => r.text()).then(labelsCsv => {
+      const guideRows = [['domain', 'kind', 'id', 'value']];
+      Object.keys(this.state.guides).forEach(ck => {
+        Object.keys(this.state.guides[ck]).forEach(uid => {
+          const g = this.state.guides[ck][uid];
+          guideRows.push([ck, 'guideline', uid, '"' + (g.text || '').replace(/"/g, "'") + '" (' + (g.done ? 'done' : 'draft') + ')']);
+        });
       });
+      const guidesCsv = guideRows.map(r => r.join(',')).join('\n');
+      const full = labelsCsv.trimEnd() + '\n\n' + guidesCsv;
+      const blob = new Blob([full], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'safespoon_annotations.csv';
+      a.click();
     });
-    Object.keys(this.state.guides).forEach(ck => {
-      Object.keys(this.state.guides[ck]).forEach(uid => {
-        const g = this.state.guides[ck][uid];
-        rows.push([ck, 'guideline', uid, '"' + (g.text || '').replace(/"/g, "'") + '" (' + (g.done ? 'done' : 'draft') + ')']);
-      });
-    });
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'safespoon_annotations.csv';
-    a.click();
   }
 
   // ---------- style helpers ----------
   _tab(active) {
-    return 'border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;padding:6px 15px;border-radius:8px;transition:all .15s;' +
-      (active ? 'background:var(--panel,#ffffff);color:var(--accent,#2f63d6);box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'background:transparent;color:var(--ink3,#98a0ab);');
+    return 'border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:' + (active ? '600' : '500') + ';padding:5px 13px;border-radius:7px;transition:all .15s;' +
+      (active ? 'background:var(--panel,#f7f8f6);color:var(--accent,#0b758e);box-shadow:0 1px 3px rgba(0,0,0,.07);' : 'background:transparent;color:var(--ink3,#8a9389);');
   }
   _catTab(active, color) {
-    return 'display:flex;align-items:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;padding:11px 13px;background:transparent;transition:all .15s;border-bottom:2px solid ' +
-      (active ? 'var(--accent,#2f63d6)' : 'transparent') + ';color:' + (active ? 'var(--ink,#1f2430)' : 'var(--ink3,#98a0ab)') + ';';
+    return 'display:flex;align-items:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:' + (active ? '600' : '400') + ';padding:10px 13px;background:transparent;transition:all .15s;border-bottom:2px solid ' +
+      (active ? 'var(--accent,#0b758e)' : 'transparent') + ';color:' + (active ? 'var(--ink,#1a1e1b)' : 'var(--ink3,#8a9389)') + ';';
   }
   _statusChip(status) {
     const map = {
-      done: 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);',
+      done: 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);',
       draft: 'background:#fdf3e3;color:#b9762f;',
       empty: 'background:var(--track,#eceef2);color:var(--ink3,#98a0ab);',
     };
@@ -696,12 +790,12 @@ class Component extends DCLogic {
   }
   _statusLabel(status) { return { done: 'Guideline ready', draft: 'Draft', empty: 'Needs guideline' }[status]; }
   _statusDot(status) {
-    const c = { done: 'var(--accent,#2f63d6)', draft: '#e0a23c', empty: '#c7ccd4' }[status];
-    return 'width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + c + ';';
+    const c = { done: 'var(--accent,#0b758e)', draft: '#c48a2a', empty: '#c4c8c0' }[status];
+    return 'width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + c + ';';
   }
   _labelChk(on) {
-    return 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;padding:4px 9px;border-radius:8px;transition:all .12s;border:1px solid ' +
-      (on ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (on ? 'var(--soft,#e8edfb)' : 'var(--surface,#f5f6f8)') + ';color:' + (on ? 'var(--accent,#2f63d6)' : 'var(--ink2,#6b7280)') + ';';
+    return 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:' + (on ? '600' : '400') + ';cursor:pointer;user-select:none;padding:3px 8px;border-radius:6px;transition:all .12s;border:1px solid ' +
+      (on ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (on ? 'var(--soft,#d9eff3)' : 'transparent') + ';color:' + (on ? 'var(--accent,#0b758e)' : 'var(--ink3,#8a9389)') + ';';
   }
 
   // ---------- breadcrumb / path ----------
@@ -725,18 +819,20 @@ class Component extends DCLogic {
       const isLeaf = n.leaf;
       const isColl = collapsed.has(n.id);
       const sel = focus === n.id;
-      const indent = 8 + depth * 18;
+      const indent = Math.min(10 + depth * 16, 96);
       let label;
       if (isLeaf) { const q = self.cat().queries[n.qi] || ''; label = q.length > 60 ? q.slice(0, 60) + '\u2026' : q; }
       else label = n.label || self.unitLabel(n);
+      const depthClass = depth === 0 ? 'tree-branch' : depth === 1 ? 'tree-branch-d1' : depth === 2 ? 'tree-branch-d2' : 'tree-branch-d3';
       rows.push({
         id: n.id,
-        toggle: isLeaf ? '' : (isColl ? '\u25B8' : '\u25BE'),
-        toggleStyle: 'width:16px;flex-shrink:0;text-align:center;font-size:9px;color:var(--ink4,#bcc2cc);cursor:' + (isLeaf ? 'default' : 'pointer') + ';',
+        toggle: isLeaf ? '' : (isColl ? '▸' : '▾'),
+        toggleStyle: 'width:18px;flex-shrink:0;text-align:center;font-size:10px;color:var(--ink4,#b8c0b9);cursor:' + (isLeaf ? 'default' : 'pointer') + ';line-height:1;',
         label, size: isLeaf ? '' : n.size,
         onToggle: isLeaf ? (() => {}) : (() => self.toggleCollapse('cCollapsed', n.id)),
         onFocus: () => self.setFocus(n.id),
-        rowStyle: 'display:flex;align-items:center;gap:6px;padding:6px 10px 6px ' + indent + 'px;border-radius:8px;cursor:pointer;font-size:' + (isLeaf ? '12px' : '12.5px') + ';font-weight:' + (isLeaf ? '500' : '700') + ';color:' + (isLeaf ? 'var(--ink2,#6b7280)' : 'var(--ink,#1f2430)') + ';transition:background .1s;' + (sel ? 'background:var(--soft,#e8edfb);' : ''),
+        rowClass: 'tree-row ' + (isLeaf ? '' : depthClass) + (sel ? ' tree-active' : ''),
+        rowStyle: 'display:flex;align-items:center;gap:6px;padding:' + (isLeaf ? '5px 12px 5px ' : '7px 12px 7px ') + indent + 'px;cursor:pointer;border-radius:0;font-size:' + (isLeaf ? '11.5px' : '12px') + ';font-weight:' + (isLeaf ? '400' : '600') + ';color:' + (isLeaf ? 'var(--ink2,#545c55)' : 'var(--ink,#1a1e1b)') + ';transition:background .1s;' + (sel ? 'background:rgba(11,117,142,0.07);' : ''),
       });
       if (!isLeaf && !isColl) {
         for (let i = n.children.length - 1; i >= 0; i--) stack.push([n.children[i], depth + 1]);
@@ -754,7 +850,7 @@ class Component extends DCLogic {
     const stack = [[tree, 0]];
     while (stack.length) {
       const [x, depth] = stack.pop();
-      const indent = 8 + depth * 16;
+      const indent = Math.min(10 + depth * 16, 84);
       if (x.unit) {
         const n = x.node;
         const status = self.guideStatus(x.id);
@@ -762,27 +858,30 @@ class Component extends DCLogic {
           id: x.id, isUnit: true,
           toggle: '', toggleStyle: 'width:14px;flex-shrink:0;',
           rank: x.priority_rank,
-          badgeStyle: 'font-family:\'Spline Sans Mono\',monospace;font-weight:700;font-size:11px;color:var(--panel,#ffffff);background:var(--accent,#2f63d6);min-width:20px;height:20px;padding:0 5px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;',
+          badgeStyle: 'font-weight:600;font-size:11px;color:var(--panel,#f7f8f6);background:var(--accent,#0b758e);min-width:20px;height:20px;padding:0 5px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;',
           label: self.unitLabel(n), size: n.size,
-          fontSize: '12.5px', weight: '700', textColor: 'var(--ink,#1f2430)',
+          fontSize: '12.5px', weight: '600', textColor: 'var(--ink,#1a1e1b)',
           statusDot: self._statusDot(status),
           onToggle: () => {}, onClick: () => self.selectUnit(x.id),
-          rowStyle: 'display:flex;align-items:center;gap:7px;padding:7px 10px 7px ' + indent + 'px;border-radius:8px;cursor:pointer;transition:background .1s;' + (sel === x.id ? 'background:var(--soft,#e8edfb);' : ''),
+          rowClass: 'tree-row tree-branch-d' + Math.min(depth, 3) + (sel === x.id ? ' tree-active' : ''),
+          rowStyle: 'display:flex;align-items:center;gap:7px;padding:6px 12px 6px ' + indent + 'px;cursor:pointer;transition:background .1s;' + (sel === x.id ? 'background:rgba(11,117,142,0.08);' : ''),
         });
       } else {
         const n = x.node;
         const isColl = collapsed.has(x.id);
+        const depthClass = depth === 0 ? 'tree-branch' : 'tree-branch-d' + Math.min(depth, 3);
         rows.push({
           id: x.id, isUnit: false,
-          toggle: isColl ? '\u25B8' : '\u25BE',
-          toggleStyle: 'width:14px;flex-shrink:0;text-align:center;font-size:9px;color:var(--ink4,#bcc2cc);cursor:pointer;',
+          toggle: isColl ? '▸' : '▾',
+          toggleStyle: 'width:14px;flex-shrink:0;text-align:center;font-size:10px;color:var(--ink4,#b8c0b9);cursor:pointer;line-height:1;',
           rank: '', badgeStyle: '',
           label: n.label || self.unitLabel(n), size: n.size,
-          fontSize: '11.5px', weight: '700', textColor: 'var(--ink3,#98a0ab)',
+          fontSize: '11.5px', weight: '600', textColor: 'var(--ink3,#8a9389)',
           statusDot: '',
           onToggle: () => self.toggleCollapse('uCollapsed', x.id),
           onClick: () => self.toggleCollapse('uCollapsed', x.id),
-          rowStyle: 'display:flex;align-items:center;gap:7px;padding:6px 10px 6px ' + indent + 'px;border-radius:8px;cursor:pointer;transition:background .1s;',
+          rowClass: 'tree-row ' + depthClass,
+          rowStyle: 'display:flex;align-items:center;gap:7px;padding:5px 12px 5px ' + indent + 'px;cursor:pointer;transition:background .1s;',
         });
         if (!isColl) {
           for (let i = x.children.length - 1; i >= 0; i--) stack.push([x.children[i], depth + 1]);
@@ -820,8 +919,8 @@ class Component extends DCLogic {
     const accentSoft = m.soft || this._soft(accent);
     const warm = (this.props.background || 'Gray') === 'Warm';
     const P = warm
-      ? { bg: '#f3efe7', panel: '#fffdfa', surface: '#fbf8f2', border: '#ece5da', track: '#f1ebe1', chip: '#f3ece1', ink: '#2a2723', ink2: '#6f685f', ink3: '#9a9389', ink4: '#c4bbad' }
-      : { bg: '#eef0f3', panel: '#ffffff', surface: '#f5f6f8', border: '#e6e8ec', track: '#edeff3', chip: '#eef0f4', ink: '#1f2430', ink2: '#6b7280', ink3: '#9aa0ab', ink4: '#c2c7d0' };
+      ? { bg: '#f0ede8', panel: '#faf8f5', surface: '#f3f0ea', border: '#e4ddd3', track: '#ebe5da', chip: '#e8e2d8', ink: '#1e1e1c', ink2: '#5c5750', ink3: '#8f8880', ink4: '#bbb5ae' }
+      : { bg: '#e8eae6', panel: '#f7f8f6', surface: '#eef0ec', border: '#dde0da', track: '#e4e7e1', chip: '#e8eae5', ink: '#1a1e1b', ink2: '#545c55', ink3: '#8a9389', ink4: '#b8c0b9' };
     const out = {
       accent, accentSoft,
       pBg: P.bg, pPanel: P.panel, pSurface: P.surface, pBorder: P.border, pTrack: P.track, pChip: P.chip, pInk: P.ink, pInk2: P.ink2, pInk3: P.ink3, pInk4: P.ink4,
@@ -856,7 +955,7 @@ class Component extends DCLogic {
         preview: this.reprOf(node).slice(0, 3).map(qi => ({ text: cat.queries[qi] })),
         selected: sel,
         onClick: () => this.selectCluster(node),
-        style: 'border:1px solid ' + (sel ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (sel ? 'var(--soft,#e8edfb)' : 'var(--panel,#ffffff)') + ';border-radius:12px;padding:13px 14px;margin-bottom:9px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#2f63d6);' : ''),
+        style: 'border:1px solid ' + (sel ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (sel ? 'var(--soft,#d9eff3)' : 'transparent') + ';border-radius:9px;padding:11px 12px;margin-bottom:6px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#0b758e);' : ''),
       };
     });
     out.clusterSelected = !!s.selCluster;
@@ -872,7 +971,7 @@ class Component extends DCLogic {
         return {
           label: lbl.length > 22 ? lbl.slice(0, 22) + '\u2026' : lbl, sep: !last,
           onClick: () => this.setFocus(n.id),
-          style: 'font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:7px;' + (last ? 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);' : 'color:var(--accent,#2f63d6);'),
+          style: 'font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:7px;' + (last ? 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);' : 'color:var(--accent,#0b758e);'),
         };
       });
       out.gDetail = {
@@ -896,7 +995,7 @@ class Component extends DCLogic {
     out.themeMapTabStyle = this._tab(s.tMode === 'map');
     const prev = new Array(T).fill(0);
     Object.values(cat.byId).forEach(n => { if (n.leaf) prev[n.topic]++; });
-    const totLeaf = cat.queries.length;
+    const totLeaf = prev.reduce((a, v) => a + v, 0) || 1;
     out.topicCards = cat.topics.map((tp, j) => ({
       num: j + 1, label: tp.label, color: this.topicColor(j),
       words: tp.words.slice(0, 5).map(w => ({ w })),
@@ -938,13 +1037,21 @@ class Component extends DCLogic {
     out.resetMap = () => this._resetMap();
     out.topicSelected = true;
     const tj = s.selTopic;
-    const topicLeaves = [];
-    Object.values(cat.byId).forEach(n => { if (n.leaf && n.topic === tj) topicLeaves.push(n.qi); });
+    const tSelf = this;
     out.tDetail = {
       num: tj + 1, label: cat.topics[tj].label,
       words: cat.topics[tj].words.map(w => ({ w })),
       pctLabel: Math.round(prev[tj] / totLeaf * 100) + '%',
-      queries: topicLeaves.slice(0, 8).map(qi => ({ text: cat.queries[qi] })),
+      queries: (cat.topDocs[tj] || []).slice(0, 8).map(qi => {
+        const l = tSelf.getLabel(qi);
+        return {
+          qi, text: cat.queries[qi],
+          trash: l.trash, demo: l.demo,
+          trashStyle: tSelf._labelChk(l.trash), demoStyle: tSelf._labelChk(l.demo),
+          onTrash: (e) => tSelf.setLabel(qi, 'trash', e.target.checked),
+          onDemo: (e) => tSelf.setLabel(qi, 'demo', e.target.checked),
+        };
+      }),
     };
 
     // ----- units -----
@@ -973,7 +1080,7 @@ class Component extends DCLogic {
         size: u.node.size, diversity: Math.round(u.node.topic_mixture * 100) + '%',
         statusLabel: this._statusLabel(status), statusChip: this._statusChip(status),
         selected: sel, onClick: () => this.selectUnit(u.id),
-        style: 'border:1px solid ' + (sel ? 'var(--accent,#2f63d6)' : 'var(--border,#e3e6eb)') + ';background:' + (sel ? 'var(--soft,#e8edfb)' : 'var(--panel,#ffffff)') + ';border-radius:12px;padding:12px 13px;margin-bottom:9px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#2f63d6);' : ''),
+        style: 'border:1px solid ' + (sel ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (sel ? 'var(--soft,#d9eff3)' : 'var(--panel,#f7f8f6)') + ';border-radius:9px;padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#0b758e);' : ''),
       };
     });
 
@@ -998,9 +1105,9 @@ class Component extends DCLogic {
       out.onGuidelineInput = (e) => this.setGuide(s.selUnit, e.target.value, null);
       out.suggestDraft = () => this.suggestDraft(u);
       out.markDone = () => this.setGuide(s.selUnit, null, status !== 'done');
-      out.markDoneLabel = status === 'done' ? '\u2713 Marked ready' : 'Mark as ready';
-      out.markDoneStyle = 'border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:9px;transition:all .15s;' +
-        (status === 'done' ? 'background:var(--accent,#2f63d6);color:var(--panel,#ffffff);' : 'background:var(--soft,#e8edfb);color:var(--accent,#2f63d6);');
+      out.markDoneLabel = status === 'done' ? '✓ Ready' : 'Mark ready';
+      out.markDoneStyle = 'border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:12px;padding:7px 14px;border-radius:7px;transition:all .15s;' +
+        (status === 'done' ? 'background:var(--accent,#0b758e);color:var(--panel,#f7f8f6);' : 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);');
     } else {
       out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], guideline: '' };
       out.onGuidelineInput = () => {}; out.suggestDraft = () => {}; out.markDone = () => {};
@@ -1017,7 +1124,7 @@ class Component extends DCLogic {
       const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
       const mix = (c) => Math.round(c + (255 - c) * 0.87);
       return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
-    } catch (e) { return '#e8edfb'; }
+    } catch (e) { return '#d9eff3'; }
   }
   _rgba(hex, a) {
     const n = parseInt(hex.slice(1), 16);

@@ -24,10 +24,16 @@ def most_representative(
     n: int = 5,
     max_medoid: int = 200,
     valid_mask: np.ndarray = None,
+    min_dominant_weight: float = 0.15,
 ) -> List[int]:
     """Return the indices of the n-most representative items among indices. If cluster is small, uses exact medoid search otherwise uses centroid-based approximation.
 
     If a valid_mask is supplied, only items with valid_mask[i] == True are considered; if no valid items remain, falls back to the full set.
+
+    min_dominant_weight filters out OOV/collapsed queries (those whose dominant
+    topic weight is below the threshold) before medoid selection, so that
+    representatives always carry real topical signal.  Falls back to the full
+    candidate set only when no informative items are available.
     """
     # Apply length filter first, fall back to full set if nothing survives
     if valid_mask is not None:
@@ -36,6 +42,14 @@ def most_representative(
             candidates = list(indices)
     else:
         candidates = list(indices)
+
+    # Informativeness filter: exclude OOV (uniform prior) and vocabulary-collapsed
+    # (single surviving token -> theta_k = 1.0) queries from representative selection.
+    informative = [i for i in candidates if X[i].max() >= min_dominant_weight and X[i].max() < 0.999]
+    if len(informative) >= n:
+        candidates = informative
+    elif len(informative) > 0:
+        candidates = informative  # take what we have even if < n
 
     if len(candidates) <= n:
         return candidates
@@ -261,8 +275,23 @@ def cluster_by_category(
     return trees_by_category
 
 
-def build_flat_tree(thetas, indices, queries, linkage_method="average", n_repr=5):
+def build_flat_tree(thetas, indices, queries, linkage_method="average", n_repr=5, X_full=None):
     """Bhattacharyya distance -> linkage -> build_tree -> flatten_tree in one call.
+
+    Parameters
+    ----------
+    thetas:
+        Document-topic matrix for the subset to cluster (shape n_valid x K).
+        Used only for computing Bhattacharyya distances.
+    indices:
+        Global indices mapping scipy leaf ids → rows in X_full / positions in queries.
+        Pass valid_local (not list(range(n_valid))) so leaf IDs are globally meaningful.
+    queries:
+        Full query list indexed by global position (same length as the full corpus).
+    X_full:
+        Full document-topic matrix (all docs, globally indexed).  Used for
+        representative selection inside build_tree.  Defaults to thetas when omitted
+        (safe only when indices == list(range(len(thetas)))).
 
     Returns
     -------
@@ -273,6 +302,6 @@ def build_flat_tree(thetas, indices, queries, linkage_method="average", n_repr=5
     D = bhattacharyya_matrix(thetas)
     Z = linkage(squareform(D, checks=False), method=linkage_method)
     root_node, _ = to_tree(Z, rd=True)
-    tree = build_tree(root_node, indices, thetas, queries, n_repr=n_repr)
+    tree = build_tree(root_node, indices, X_full if X_full is not None else thetas, queries, n_repr=n_repr)
     flat_nodes, root_id = flatten_tree(tree)
     return flat_nodes, root_id, Z

@@ -398,7 +398,7 @@ class TMmodel(object):
         if reference_text is None:
             corpus = [el.split() for el in self._df_corpus_train["text"].values.tolist()]
         elif reference_text and isinstance(reference_text[0], str):
-            corpus = [el.split() for el in reference_text]
+            corpus = [el.split() for el in reference_text if isinstance(el, str)]
         else:
             corpus = reference_text
 
@@ -552,7 +552,7 @@ class TMmodel(object):
         mat,
         topn=None,
         get_text=False,
-        length_quantile_bounds=(0.3, 0.9),
+        length_quantile_bounds=(0.15, 0.9),
         poly_degree=3,
         smoothing_window=5,
         seed=2357_11,
@@ -642,7 +642,7 @@ class TMmodel(object):
                 docs=docs,
             )
             prompts.append((tpc_id, prompt_filled))
-                
+
         def _run_prompt(args):
             tpc_id, prompt_filled = args
             output_text = None
@@ -1014,7 +1014,7 @@ def top_docs_per_topic(
     thetas: np.ndarray,
     queries: List[str],
     topn: int = 10,
-    length_quantile_bounds: tuple = (0.30, 0.90),
+    length_quantile_bounds: tuple = (0.15, 0.90),
     s3: Optional[np.ndarray] = None,
     poly_degree: int = 3,
     smoothing_window: int = 5,
@@ -1089,6 +1089,17 @@ def top_docs_per_topic(
 
         if len(candidate_id) == 0:
             candidate_id = np.arange(n_docs)
+
+        # Exclude vocabulary-collapsed documents: queries where only a single
+        # topic survived sparsification get theta_k == 1.0 by arithmetic
+        # accident, not genuine topical signal.  They trivially pass the elbow
+        # threshold and dominate the S3+theta ranking, producing nonsensical
+        # representatives.  Require at least 2 non-zero topics; fall back to
+        # the full candidate set only if this filter would leave nothing.
+        nz_topics = (thetas[candidate_id] > 1e-6).sum(axis=1)
+        non_collapsed = candidate_id[nz_topics >= 2]
+        if len(non_collapsed) > 0:
+            candidate_id = non_collapsed
 
         # Score: combined S3+theta (normalized) when S3 is available
         if s3 is not None:

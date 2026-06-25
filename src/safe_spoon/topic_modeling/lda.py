@@ -73,7 +73,7 @@ class LDATopicModel:
         iter_interval: int = 10,
         topn: int = 15,
         thetas_thr: float = 3e-3,
-        min_doc_words: int = 3,
+        min_doc_words: int = 5,
         do_labeller: bool = False,
         do_summarizer: bool = False,
         llm_model_type: Optional[str] = None,
@@ -482,17 +482,19 @@ class LDATopicModel:
             _log.info(f"[optimize] Recalculating coherence using external reference corpus...")
             
             tr_data_cohr = np.load(model_path / "TMmodel" / "topic_coherence.npy")
-            mean_coh = float(np.mean(tr_data_cohr))
+            mean_train_coh = float(np.mean(tr_data_cohr))
             
             # recalculate coherence using external reference corpus
-            lda._tm.calculate_topic_coherence(
+            coh = np.asarray(lda.tm.calculate_topic_coherence(
                 reference_text=lda._reference_corpus,
-            )
-            
-            coh = np.load(model_path / "TMmodel" / "topic_coherence.npy")
+            ))
+            np.save(model_path / "TMmodel" / "topic_coherence.npy", coh)
             mean_coh = float(np.mean(coh))
             
-            _log.info(f"[optimize] REF COHERENCE: k={k}: mean coherence = {mean_coh:.4f} VS OLD (TR DATA): {np.mean(tr_data_cohr):.4f}")
+            _log.info(
+                f"[optimize] REF COHERENCE: k={k}: mean coherence = {mean_coh:.4f} "
+                f"VS OLD (TR DATA): {mean_train_coh:.4f}"
+            )
             
             raw_scores.append(mean_coh)
             _log.info(f"[optimize] k={k}: mean coherence = {mean_coh:.4f}")
@@ -596,8 +598,16 @@ class LDATopicModel:
 
     @staticmethod
     def _kw_theta(tokens: List[str], keys: List[List[str]], k: int) -> np.ndarray:
-        """Keyword-overlap fallback distribution for short documents."""
+        """Keyword-overlap fallback distribution for short documents.
+
+        Returns a uniform distribution when there is no overlap or when only
+        a single keyword matches across all topics combined — a single hit is
+        not enough evidence to pin a document to one topic, and doing so
+        produces the same kind of deterministic collapse as LDA sparsification.
+        """
         scores = np.array([len(set(tokens) & set(kw)) for kw in keys], dtype=float)
-        if scores.sum() == 0:
+        if scores.sum() <= 1:
+            # No overlap at all, or only one keyword matched in total:
+            # not enough signal to assign a topic — fall back to uniform.
             scores = np.ones(k)
         return scores / scores.sum()

@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 # config
 INPUT_FILE = "data/high_risk_automatically_labelled_filtered_cleaned.csv" # this inludes the filtering done in aux_scripts/data_filtering.py
 INPUT_REF_FILE = "data/reference_corpus.csv" # this is the reference corpus used for coherence calculation
+INPUT_REF_PREPROC_FILE = "data/reference_corpus_preprocessed.csv" # this is the reference corpus used for coherence calculation
 CONTENT_COL = "content"
 LABEL_COL = "high_risk_label"
 OUTPUT_JSON = "data/output/viz_v5_data.json"
@@ -37,21 +38,19 @@ OUTPUT_JSON = "data/output/viz_v5_data.json"
 #CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
 CATEGORIES = ['Health']
 
-RETRAIN = True
-OPTIMIZE = True
-OPTIMIZE_RANGE = range(10, 51, 5)
+RETRAIN = False
+OPTIMIZE = False
+OPTIMIZE_RANGE = range(30, 41, 5)
 
 LLM_PROVIDER = "openai"
 LLM_MODEL    = "gpt-5.4-nano-2026-03-17"
 LLM_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-N_TOPICS  = 30
-LDA_ITERS = 500
+N_TOPICS = 30
+LDA_ITERS = 1500
 N_REPR_QUERIES = 50
 N_CUT_LEVELS = 40
 LINKAGE_METHOD = "average"
-
-
 
 if __name__ == "__main__":
     log.info("Loading data from %s", INPUT_FILE)
@@ -61,8 +60,6 @@ if __name__ == "__main__":
     categories = [c for c in CATEGORIES if c in all_categories] if CATEGORIES else all_categories
     log.info("Loaded %d queries * %d categories: %s", len(queries), len(categories), categories)
 
-
-
     data_by_category = {}
     trees_by_category = {}
     t_total = time.time()
@@ -71,7 +68,7 @@ if __name__ == "__main__":
         df_corpus_cat = corpus_for_category(queries, labels, cat)
         n = len(df_corpus_cat)
         log.info("── Category %d/%d: '%s' (%d queries)", cat_id, len(categories), cat, n)
-
+        import pdb; pdb.set_trace()
         if n < 2:
             log.warning("  Skipping '%s' — fewer than 2 queries", cat)
             continue
@@ -81,13 +78,21 @@ if __name__ == "__main__":
         log.info("Spacy preprocessor initialised * min_df=%d, max_df=%.2f", preprocessor.min_df, preprocessor.max_df)
         
         #preprocess reference text
-        log.info("Preprocessing reference corpus from %s", INPUT_REF_FILE)
-        time_ref = time.time()
-        df_ref = preprocessor.fit_transform(pd.read_csv(INPUT_REF_FILE,  encoding="latin-1"), text_col="text", id_col="id",
-                compute_bow=False, compute_tfidf=False,
-            )
-        time_ref_elapsed = time.time() - time_ref
-        log.info("Reference corpus preprocessed in %.1f sec * %d docs", time_ref_elapsed, len(df_ref))
+        if Path(INPUT_REF_PREPROC_FILE).exists():
+            log.info("Loading preprocessed reference corpus from %s", INPUT_REF_PREPROC_FILE)
+            df_ref = pd.read_csv(INPUT_REF_PREPROC_FILE, encoding="utf-8")
+            log.info("Preprocessed reference corpus loaded * %d docs", len(df_ref))
+        else:
+            log.info("Preprocessing reference corpus from %s", INPUT_REF_FILE)
+            time_ref = time.time()
+            df_ref = preprocessor.fit_transform(pd.read_csv(INPUT_REF_FILE,  encoding="latin-1"), text_col="text", id_col="id",
+                    compute_bow=False, compute_tfidf=False,
+                )
+            time_ref_elapsed = time.time() - time_ref
+            log.info("Reference corpus preprocessed in %.1f sec * %d docs", time_ref_elapsed, len(df_ref))
+            # save preprocessed reference corpus to file for future use
+            df_ref.to_csv(INPUT_REF_PREPROC_FILE, index=False, encoding="utf-8")
+            log.info("Preprocessed reference corpus saved to %s", INPUT_REF_PREPROC_FILE)
 
 
         model_dir = f"./data/models/{cat.replace(' ', '_')}"
@@ -153,7 +158,7 @@ if __name__ == "__main__":
                 alpha=0.1,
                 eta=0.01,
                 preprocessor=preprocessor,
-                do_labeller=True,
+                do_labeller=False,
                 do_summarizer=False,
                 llm_provider=LLM_PROVIDER,
                 llm_model_type=LLM_MODEL,
@@ -183,13 +188,29 @@ if __name__ == "__main__":
 
         log.info("  [%s] Building hierarchy (%d docs)...", cat, n)
         t0 = time.time()
-        local_indices = list(range(n))
+
+        # Filter out OOV before clustering.
+        # These have max(theta) < OOV_THRESHOLD (the LDA prior gives them a
+        # perfectly flat distribution across all topics), which makes their
+        # pairwise Bhattacharyya distance exactly 0.
+        OOV_THRESHOLD = 0.15
+        oov_mask = X_cat.max(axis=1) < OOV_THRESHOLD
+        n_oov = int(oov_mask.sum())
+        if n_oov > 0:
+            log.info(
+                "  [%s] Filtering %d OOV queries (%.1f%%) with max_theta < %.2f before clustering",
+                cat, n_oov, 100 * n_oov / n, OOV_THRESHOLD,
+            )
+        valid_local = [i for i in range(n) if not oov_mask[i]]
+        X_valid = X_cat[valid_local]
+
         flat_nodes, root_id, Z = build_flat_tree(
-            X_cat, local_indices, queries_ordered,
+            X_valid, valid_local, queries_ordered,
             linkage_method=LINKAGE_METHOD, n_repr=N_REPR_QUERIES,
+            X_full=X_cat,
         )
         min_d, max_d = float(Z[:, 2].min()), float(Z[:, 2].max())
-        log.info("  [%s] Hierarchy done in %.1fs * %d nodes", cat, time.time() - t0, len(flat_nodes))
+        log.info("  [%s] Hierarchy done in %.1fs * %d nodes (%d valid docs)", cat, time.time() - t0, len(flat_nodes), len(valid_local))
 
         # cut levels
         log.info("  [%s] Computing %d cut levels...", cat, N_CUT_LEVELS)
@@ -241,11 +262,11 @@ if __name__ == "__main__":
         trees_by_category[cat] = {
             "nodes": flat_nodes,
             "root_id": root_id,
-            "indices": local_indices,
+            "indices": valid_local,
             "cuts": cuts,
             "min_dist": round(min_d, 4),
             "max_dist": round(max_d, 4),
-            "n": n,
+            "n": len(valid_local),
         }
         log.info("  [%s] Done", cat)
 

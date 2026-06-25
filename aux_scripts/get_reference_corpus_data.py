@@ -17,7 +17,7 @@ for f in csv_files:
    
     df, _ = remove_near_duplicates(df, "query", 0.95)
     print(f"df len is {len(df)} after removing near duplicates for {f}")
-   
+    import pdb; pdb.set_trace()
     dfs.append(df)
 
 # check that all dfs have the same prompt_id

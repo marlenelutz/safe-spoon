@@ -1,8 +1,8 @@
-# annotation units
-min_size: 15
-max_purity: 0.55   
+# Annotation unit stopping rules
+min_size: 50
+purity_factor: 5.0    # max_purity = purity_factor / K  (K = numero de topicos del dominio)
 
 priority_weights:
-  topic_mixture:  0.5
-  size:           0.3
-  merge_balance:  0.2
+  topic_mixture: 0.5
+  size: 0.3
+  merge_balance: 0.2

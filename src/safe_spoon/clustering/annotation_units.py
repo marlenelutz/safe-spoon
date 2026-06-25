@@ -68,7 +68,7 @@ def build_unit_tree(
     root_id: str,
     leaf_indices: Dict[str, List[int]],
     thetas_arr: np.ndarray,
-    min_size: int = 10,
+    min_size: int = 50,
     max_purity: float = 0.70,
     topic_labels: Optional[List[str]] = None,
     topic_keys: Optional[List[List[str]]] = None,
@@ -110,9 +110,18 @@ def build_unit_tree(
             merge_balance = min(ls, rs) / max(ls, rs)
         else:
             merge_balance = 1.0
-        is_unit = size <= min_size or dominant_weight >= max_purity or not cids
+        if not cids:
+            stop_reason = "leaf"
+        elif size <= min_size:
+            stop_reason = "size"
+        elif dominant_weight >= max_purity:
+            stop_reason = "purity"
+        else:
+            stop_reason = "recurse"
+        is_unit = stop_reason != "recurse"
         classified[nid] = {
             "is_unit": is_unit,
+            "stop_reason": stop_reason,
             "size": size,
             "dist": round(float(node.get("dist", 0.0)), 4),
             "repr": node.get("repr", ids[:5]),
@@ -150,7 +159,11 @@ def build_unit_tree(
 
     for nid in reversed(topo_order):  # bottom-up
         nc = classified[nid]
-        if nc["is_unit"] and nc["size"] < min_size:
+        # Promote a unit upward only when it is both small AND not thematically pure.
+        # A node with dominant_weight >= max_purity is already a coherent unit and
+        # should stay as-is even if its size is below min_size — promoting it would
+        # collapse the parent (which may be huge) into a single unit unnecessarily.
+        if nc["is_unit"] and nc["size"] < min_size and nc["dominant_weight"] < max_purity:
             pid = parent_of.get(nid)
             if pid is not None:
                 classified[pid]["is_unit"] = True   # parent absorbs this tiny node

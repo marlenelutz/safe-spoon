@@ -47,7 +47,7 @@ class AnnotationUnitModel:
         topic_labels: List[str],
         queries: List[str],
         model_path: Optional[str] = None,
-        min_size: int = 10,
+        min_size: int = 50,
         max_purity: float = 0.70,
         pw_mixture: float = 0.5,
         pw_size: float = 0.3,

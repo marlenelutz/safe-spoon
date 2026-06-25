@@ -10,7 +10,7 @@ from safe_spoon.utils.common import load_annotation_unit_config
 
 _au_cfg = load_annotation_unit_config()
 MIN_SIZE = _au_cfg["min_size"]
-MAX_PURITY = _au_cfg["max_purity"]
+PURITY_FACTOR = _au_cfg["purity_factor"]   # max_purity = PURITY_FACTOR / K
 PW_MIXTURE = _au_cfg["pw_mixture"]
 PW_SIZE = _au_cfg["pw_size"]
 PW_BALANCE = _au_cfg["pw_balance"]
@@ -20,9 +20,9 @@ app = Flask(__name__, static_folder="static")
 DATA_FILE = "data/output/viz_v5_data.json"
 LABELS_FILE = "data/output/labels.csv"
 
-_data        = None
-_labels      = {}
-_unit_cache  = {}  # cat -> serialised annotation-unit payload, reused across requests
+_data = None
+_labels = {}
+_unit_cache = {}  # cat -> serialised annotation-unit payload, reused across requests
 
 
 def get_data():
@@ -35,15 +35,15 @@ def get_data():
 
 
 def _write_labels_csv(writer, labels_dict, data_by_category):
-    writer.writerow(["query_id", "category", "query_index", "query",
-                     "TRASH_PRESENT", "DEMOGRAPHICS_DESCRIBED"])
+    writer.writerow([
+        "query_id", "category", "query_index", "query","TRASH_PRESENT", "DEMOGRAPHICS_DESCRIBED"])
     for key, state in labels_dict.items():
         cat, gi_str = key.rsplit(":", 1)
-        gi   = int(gi_str)
+        gi = int(gi_str)
         info = data_by_category.get(cat, {})
-        ids  = info.get("query_ids") or []
-        qs   = info.get("queries")   or []
-        qid  = ids[gi] if gi < len(ids) else gi
+        ids = info.get("query_ids") or []
+        qs = info.get("queries")   or []
+        qid = ids[gi] if gi < len(ids) else gi
         text = qs[gi]  if gi < len(qs)  else ""
         writer.writerow([qid, cat, gi, text, state["trash"], state["demo"]])
 
@@ -100,15 +100,15 @@ def api_category(cat):
     d = get_data()
     info = d["data_by_category"].get(cat, {})
     return jsonify({
-        "queries":      info.get("queries",      []),
-        "query_ids":    info.get("query_ids",    []),
-        "topic_keys":   info.get("topic_keys",   []),
+        "queries": info.get("queries", []),
+        "query_ids": info.get("query_ids",[]),
+        "topic_keys": info.get("topic_keys", []),
         "topic_labels": info.get("topic_labels", []),
-        "alphas":       info.get("alphas",       []),
-        "tpc_coords":   info.get("tpc_coords",   []),
-        "top_docs":     info.get("top_docs",     []),
-        "thetas":       info.get("thetas",       []),
-        "n":            info.get("n",            0),
+        "alphas": info.get("alphas", []),
+        "tpc_coords": info.get("tpc_coords",   []),
+        "top_docs": info.get("top_docs", []),
+        "thetas": info.get("thetas", []),
+        "n": info.get("n", 0),
     })
 
 
@@ -196,27 +196,35 @@ def api_annotation_units(cat):
             "config": {},
         })
 
+    thetas_all = np.array(thetas_raw, dtype=np.float32)
+    tree_indices = tree_info.get("indices", list(range(len(thetas_all))))
+    thetas_for_tree = thetas_all[tree_indices]
+
+    # Derive max_purity from the number of topics K so the threshold scales automatically when different domains have different K values.
+    k = thetas_for_tree.shape[1]
+    max_purity = round(min(PURITY_FACTOR / k, 0.80), 4)
+
     aum = AnnotationUnitModel(
-        flat_nodes   = tree_info["nodes"],
-        root_id      = tree_info["root_id"],
-        thetas       = np.array(thetas_raw, dtype=np.float32),
-        topic_keys   = info.get("topic_keys",   []),
+        flat_nodes = tree_info["nodes"],
+        root_id = tree_info["root_id"],
+        thetas = thetas_all,
+        topic_keys = info.get("topic_keys",   []),
         topic_labels = info.get("topic_labels", []),
-        queries      = info.get("queries",      []),
-        min_size     = MIN_SIZE,
-        max_purity   = MAX_PURITY,
-        pw_mixture   = PW_MIXTURE,
-        pw_size      = PW_SIZE,
-        pw_balance   = PW_BALANCE,
+        queries = info.get("queries", []),
+        min_size = MIN_SIZE,
+        max_purity = max_purity,
+        pw_mixture = PW_MIXTURE,
+        pw_size = PW_SIZE,
+        pw_balance = PW_BALANCE,
     )
     aum.build()
     unit_nodes, unit_root_id = _flatten_unit_tree(aum.unit_tree)
     payload = {
-        "unit_tree":    {"nodes": unit_nodes, "root_id": str(unit_root_id)} if unit_nodes is not None else None,
-        "n_units":      aum.n_units,
-        "topic_keys":   info.get("topic_keys",   []),
+        "unit_tree": {"nodes": unit_nodes, "root_id": str(unit_root_id)} if unit_nodes is not None else None,
+        "n_units": aum.n_units,
+        "topic_keys": info.get("topic_keys",   []),
         "topic_labels": info.get("topic_labels", []),
-        "config":       {"min_size": MIN_SIZE, "max_purity": MAX_PURITY},
+        "config":{"min_size": MIN_SIZE, "max_purity": max_purity, "purity_factor": PURITY_FACTOR, "k": k},
     }
     _unit_cache[cat] = payload
     return jsonify(payload)
