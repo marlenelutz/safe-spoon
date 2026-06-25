@@ -20,3 +20,14 @@ ui_display:
     themes: true
     groups: false
     guidelines: false
+
+# Query annotation checkboxes
+query_labels:
+  - field: trash
+    label: "Not a real request"
+  - field: demo
+    label: "Mentions personal details"
+  - field: not_in_domain
+    label: "Not in domain"
+  - field: not_in_topic
+    label: "Not in topic"

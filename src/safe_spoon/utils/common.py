@@ -138,6 +138,16 @@ def load_annotation_unit_config(config_path: str = "config/config.yaml") -> dict
     pw = cfg.get("priority_weights", {})
     ui = cfg.get("ui_display", {})
     ui_views = ui.get("views", {})
+    _default_labels = [
+        {"field": "trash", "label": "Not a real request"},
+        {"field": "demo",  "label": "Mentions personal details"},
+    ]
+    raw_labels = cfg.get("query_labels", _default_labels)
+    query_labels = [
+        {"field": str(lf["field"]), "label": str(lf["label"])}
+        for lf in raw_labels
+        if isinstance(lf, dict) and "field" in lf and "label" in lf
+    ] or _default_labels
     return {
         "min_size":      int(cfg.get("min_size",      50)),
         "purity_factor": float(cfg.get("purity_factor", 5.0)),
@@ -158,6 +168,7 @@ def load_annotation_unit_config(config_path: str = "config/config.yaml") -> dict
                 "guidelines": bool(ui_views.get("guidelines", False)),
             },
         },
+        "query_labels": query_labels,
     }
 
 

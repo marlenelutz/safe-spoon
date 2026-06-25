@@ -72,7 +72,7 @@ CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
 
 RETRAIN = True
 OPTIMIZE = True
-OPTIMIZE_RANGE = range(30, 101, 5)
+OPTIMIZE_RANGE = range(30, 51, 5)
 
 LLM_PROVIDER = "openai"
 LLM_MODEL    = "gpt-5.4-nano-2026-03-17"

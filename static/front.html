@@ -50,6 +50,10 @@
   .pager-btn { border: 1px solid var(--border,#dde0da); background: transparent; font-size: 12px; font-weight: 500; padding: 5px 11px; border-radius: 7px; font-family: inherit; }
   .pager-btn-on { color: var(--ink2,#545c55); cursor: pointer; }
   .pager-btn-off { color: var(--ink4,#b8c0b9); cursor: default; }
+
+  /* Query annotation label checkboxes */
+  .lbl-chk { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 400; cursor: pointer; user-select: none; padding: 3px 8px; border-radius: 6px; transition: all .12s; border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink3,#8a9389); }
+  .lbl-chk-on { font-weight: 600; border-color: var(--accent,#0b758e); background: var(--soft,#d9eff3); color: var(--accent,#0b758e); }
 </style>
 </helmet>
 <div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#e8eae6); color: var(--ink,#1f2430); overflow: hidden;">
@@ -182,9 +186,10 @@
               <sc-for list="{{ gDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 8px; margin-top: 9px;">
-                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
-                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                    <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
+                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                    </sc-for>
                   </div>
                 </div>
               </sc-for>
@@ -286,9 +291,10 @@
               <sc-for list="{{ tDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 11px 13px;">
                   <div style="font-size: 13px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 8px; margin-top: 9px;">
-                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
-                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                    <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
+                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                    </sc-for>
                   </div>
                 </div>
               </sc-for>
@@ -416,9 +422,10 @@
               <sc-for list="{{ uDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 8px; margin-top: 9px;">
-                    <label style="{{ q.trashStyle }}"><input type="checkbox" checked="{{ q.trash }}" onChange="{{ q.onTrash }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Not a real request</label>
-                    <label style="{{ q.demoStyle }}"><input type="checkbox" checked="{{ q.demo }}" onChange="{{ q.onDemo }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> Mentions personal details</label>
+                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                    <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
+                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                    </sc-for>
                   </div>
                 </div>
               </sc-for>
@@ -451,6 +458,10 @@ class Component extends DCLogic {
     this.TINTS = ['#0b758e', '#7a4f1e', '#4a6741', '#7a5c99', '#8e4a2f'];
     this.CATMETA = {};
     this.CATS = {};
+    this.LABEL_FIELDS = [
+      { field: 'trash', label: 'Not a real request' },
+      { field: 'demo',  label: 'Mentions personal details' },
+    ];
     this.UI = {
       topic_words_max: 10,
       theme_bars_max: 5,
@@ -497,6 +508,9 @@ class Component extends DCLogic {
         nextUI.views = { themes: true, groups: true, guidelines: true };
       }
       this.UI = nextUI;
+      if (Array.isArray(init.query_labels) && init.query_labels.length) {
+        this.LABEL_FIELDS = init.query_labels;
+      }
       init.categories.forEach((k, i) => {
         this.CATMETA[k] = { color: this.TINTS[i % this.TINTS.length], soft: catSofts[i % catSofts.length] };
       });
@@ -808,11 +822,16 @@ class Component extends DCLogic {
   }
   _onThemePanelUp() { this.setState({ _themePanelDrag: null }); }
 
+  _labelDefaults() {
+    const d = {};
+    this.LABEL_FIELDS.forEach(lf => { d[lf.field] = false; });
+    return d;
+  }
   setLabel(qi, field, val) {
     const labels = JSON.parse(JSON.stringify(this.state.labels));
     const ck = this.state.catKey;
     if (!labels[ck]) labels[ck] = {};
-    if (!labels[ck][qi]) labels[ck][qi] = { trash: false, demo: false };
+    if (!labels[ck][qi]) labels[ck][qi] = this._labelDefaults();
     labels[ck][qi][field] = val;
     this.setState({ labels });
     this._save('safespoon.labels', labels);
@@ -820,10 +839,15 @@ class Component extends DCLogic {
     fetch('/api/labels', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cat: ck, gi: Number(qi), trash: l.trash, demo: l.demo }),
+      body: JSON.stringify({ cat: ck, gi: Number(qi), ...l }),
     });
   }
-  getLabel(qi) { return ((this.state.labels[this.state.catKey] || {})[qi]) || { trash: false, demo: false }; }
+  getLabel(qi) {
+    const existing = ((this.state.labels[this.state.catKey] || {})[qi]) || {};
+    const out = this._labelDefaults();
+    Object.keys(out).forEach(f => { if (f in existing) out[f] = !!existing[f]; });
+    return out;
+  }
 
   setGuide(unitId, text, done) {
     const guides = JSON.parse(JSON.stringify(this.state.guides));
@@ -892,21 +916,24 @@ class Component extends DCLogic {
     const c = { done: 'var(--accent,#0b758e)', draft: '#c48a2a', empty: '#c4c8c0' }[status];
     return 'width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + c + ';';
   }
-  _labelChk(on) {
-    return 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:' + (on ? '600' : '400') + ';cursor:pointer;user-select:none;padding:3px 8px;border-radius:6px;transition:all .12s;border:1px solid ' +
-      (on ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (on ? 'var(--soft,#d9eff3)' : 'transparent') + ';color:' + (on ? 'var(--accent,#0b758e)' : 'var(--ink3,#8a9389)') + ';';
-  }
+  _labelChk(on) { return 'lbl-chk' + (on ? ' lbl-chk-on' : ''); }
 
   // ---------- pagination ----------
   _queryRow(qi) {
     const cat = this.cat();
     const l = this.getLabel(qi);
+    const self = this;
     return {
       qi, text: cat.queries[qi],
-      trash: l.trash, demo: l.demo,
-      trashStyle: this._labelChk(l.trash), demoStyle: this._labelChk(l.demo),
-      onTrash: (e) => this.setLabel(qi, 'trash', e.target.checked),
-      onDemo: (e) => this.setLabel(qi, 'demo', e.target.checked),
+      labels: this.LABEL_FIELDS.map(lf => {
+        const val = !!l[lf.field];
+        return {
+          text: lf.label,
+          checked: val,
+          cls: self._labelChk(val),
+          onChange: (e) => self.setLabel(qi, lf.field, e.target.checked),
+        };
+      }),
     };
   }
   _paginate(qis, page) {

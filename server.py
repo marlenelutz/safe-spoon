@@ -16,6 +16,12 @@ PW_MIXTURE = _au_cfg["pw_mixture"]
 PW_SIZE = _au_cfg["pw_size"]
 PW_BALANCE = _au_cfg["pw_balance"]
 UI_DISPLAY = _au_cfg["ui_display"]
+QUERY_LABELS = _au_cfg.get("query_labels", [
+    {"field": "trash", "label": "Not a real request"},
+    {"field": "demo",  "label": "Mentions personal details"},
+])
+# Map legacy CSV column names used before configurable labels were introduced
+_LEGACY_CSV_COLS = {"trash": "TRASH_PRESENT", "demo": "DEMOGRAPHICS_DESCRIBED"}
 
 app = Flask(__name__, static_folder="static")
 
@@ -88,8 +94,8 @@ def get_data():
 
 
 def _write_labels_csv(writer, labels_dict, data_by_category):
-    writer.writerow([
-        "query_id", "category", "query_index", "query","TRASH_PRESENT", "DEMOGRAPHICS_DESCRIBED"])
+    field_cols = [lf["field"].upper() for lf in QUERY_LABELS]
+    writer.writerow(["query_id", "category", "query_index", "query"] + field_cols)
     for key, state in labels_dict.items():
         cat, gi_str = key.rsplit(":", 1)
         gi = int(gi_str)
@@ -98,7 +104,8 @@ def _write_labels_csv(writer, labels_dict, data_by_category):
         qs = info.get("queries")   or []
         qid = ids[gi] if gi < len(ids) else gi
         text = qs[gi]  if gi < len(qs)  else ""
-        writer.writerow([qid, cat, gi, text, state["trash"], state["demo"]])
+        vals = [state.get(lf["field"], False) for lf in QUERY_LABELS]
+        writer.writerow([qid, cat, gi, text] + vals)
 
 
 def load_labels():
@@ -110,10 +117,18 @@ def load_labels():
     with p.open(encoding="utf-8") as f:
         for row in csv.DictReader(f):
             key = f"{row['category']}:{row['query_index']}"
-            _labels[key] = {
-                "trash": row["TRASH_PRESENT"] == "True",
-                "demo":  row["DEMOGRAPHICS_DESCRIBED"] == "True",
-            }
+            state = {}
+            for lf in QUERY_LABELS:
+                field = lf["field"]
+                col = field.upper()
+                legacy = _LEGACY_CSV_COLS.get(field)
+                if col in row:
+                    state[field] = row[col] == "True"
+                elif legacy and legacy in row:
+                    state[field] = row[legacy] == "True"
+                else:
+                    state[field] = False
+            _labels[key] = state
 
 
 def save_labels():
@@ -149,6 +164,7 @@ def api_init():
         "categories": d["categories"],
         "n_repr": d["n_repr"],
         "ui_display": UI_DISPLAY,
+        "query_labels": QUERY_LABELS,
     })
 
 
@@ -214,7 +230,7 @@ def post_label():
     cat = body["cat"]
     gi = int(body["gi"])
     key = f"{cat}:{gi}"
-    _labels[key] = {"trash": bool(body["trash"]), "demo": bool(body["demo"])}
+    _labels[key] = {lf["field"]: bool(body.get(lf["field"], False)) for lf in QUERY_LABELS}
     save_labels()
     return jsonify({"ok": True})
 
