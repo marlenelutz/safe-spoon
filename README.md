@@ -1,4 +1,6 @@
-# SAFE-SPOON <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="60" align="top"/>
+# SAFE-SPOON
+
+<p align="center"><img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="80"/></p>
 
 ## Quick Start
 
