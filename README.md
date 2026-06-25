@@ -1,4 +1,4 @@
-.. image:: https://github.com/Nemesis1303/jellyfish-spoon/blob/main/src/gui/uis/resources/images/jelly_logo5.png
+.. image:: https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png
    :align: center
    :width: 600px
 ===========================
