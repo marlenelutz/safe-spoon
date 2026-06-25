@@ -1,4 +1,5 @@
 import io
+import ast
 
 from flask import Flask, Response, jsonify, request, send_file
 from pathlib import Path
@@ -19,19 +20,66 @@ UI_DISPLAY = _au_cfg["ui_display"]
 app = Flask(__name__, static_folder="static")
 
 _BASE_DIR = Path(__file__).parent
+_STATIC_DIR = _BASE_DIR / "static"
 DATA_FILE = _BASE_DIR / "data/output/viz_v5_data.json"
 LABELS_FILE = _BASE_DIR / "data/output/labels.csv"
+DATA_FILE_FALLBACK = _BASE_DIR / "output/viz_v5_data.json"
 
 _data = None
 _labels = {}
 _unit_cache = {}  # cat -> serialised annotation-unit payload, reused across requests
 
 
+def _resolve_data_file() -> Path:
+    for candidate in (DATA_FILE, DATA_FILE_FALLBACK):
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "Could not find visualization data JSON. Checked: "
+        f"{DATA_FILE} and {DATA_FILE_FALLBACK}. "
+        "Generate it with `python this_needs_a_better_name.py` or download the full data folder."
+    )
+
+
+def _load_tm_coords_and_alphas(info):
+    """Load authoritative topic coordinates and alphas from TMmodel files when available."""
+    coords = info.get("tpc_coords", [])
+    alphas = info.get("alphas", [])
+
+    model_path = (info.get("model_info") or {}).get("model_path")
+    if not model_path:
+        return coords, alphas
+
+    tm_dir = Path(model_path) / "TMmodel"
+
+    coords_path = tm_dir / "tpc_coords.txt"
+    if coords_path.is_file():
+        parsed = []
+        with coords_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                x, y = ast.literal_eval(line)
+                parsed.append([round(float(x), 4), round(float(y), 4)])
+        if parsed:
+            coords = parsed
+
+    alphas_path = tm_dir / "alphas.npy"
+    if alphas_path.is_file():
+        loaded = np.load(str(alphas_path)).tolist()
+        if loaded:
+            alphas = [round(float(a), 6) for a in loaded]
+
+    return coords, alphas
+
+
 def get_data():
     global _data
     if _data is None:
         print("Loading data...", flush=True)
-        _data = json.load(open(DATA_FILE, encoding="utf-8"))
+        with _resolve_data_file().open(encoding="utf-8") as f:
+            _data = json.load(f)
         print("Data loaded.", flush=True)
     return _data
 
@@ -78,17 +126,17 @@ load_labels()
 
 @app.route("/")
 def index():
-    return send_file("static/front.html")
+    return send_file(_STATIC_DIR / "front.html")
 
 
 @app.route("/support.js")
 def serve_support():
-    return send_file("static/support.js")
+    return send_file(_STATIC_DIR / "support.js")
 
 
 @app.route("/jelly_logo4.png")
 def serve_logo():
-    return send_file("static/jelly_logo4.png")
+    return send_file(_STATIC_DIR / "jelly_logo4.png")
 
 
 @app.route("/api/init")
@@ -105,13 +153,14 @@ def api_init():
 def api_category(cat):
     d = get_data()
     info = d["data_by_category"].get(cat, {})
+    coords, alphas = _load_tm_coords_and_alphas(info)
     return jsonify({
         "queries": info.get("queries", []),
         "query_ids": info.get("query_ids",[]),
         "topic_keys": info.get("topic_keys", []),
         "topic_labels": info.get("topic_labels", []),
-        "alphas": info.get("alphas", []),
-        "tpc_coords": info.get("tpc_coords",   []),
+        "alphas": alphas,
+        "tpc_coords": coords,
         "top_docs": info.get("top_docs", []),
         "thetas": info.get("thetas", []),
         "n": info.get("n", 0),

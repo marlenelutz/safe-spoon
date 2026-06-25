@@ -2,11 +2,11 @@ import json
 import logging
 import os
 import time
+import ast
 
 import numpy as np
 from pathlib import Path
 import pandas as pd
-from sklearn.decomposition import PCA
 
 from dotenv import load_dotenv
 from scipy.cluster.hierarchy import fcluster
@@ -18,6 +18,37 @@ from safe_spoon.utils.common import load_annotation_unit_config
 from safe_spoon.preprocessing import SimpleTMPreprocessor
 from safe_spoon.topic_modeling import LDATopicModel
 from safe_spoon.topic_modeling.tm_model import top_docs_per_topic
+
+
+def load_tm_coords(tm_folder: Path, n_topics: int) -> list[list[float]]:
+    """Read topic coordinates from TMmodel/tpc_coords.txt.
+
+    The file stores one tuple per line, e.g. ``(x, y)``.
+    """
+    coords_path = tm_folder / "tpc_coords.txt"
+    if not coords_path.is_file():
+        log.warning("tpc_coords.txt not found at %s; using zero coordinates", coords_path)
+        return [[0.0, 0.0] for _ in range(n_topics)]
+
+    coords = []
+    with coords_path.open("r", encoding="utf-8") as fin:
+        for line in fin:
+            line = line.strip()
+            if not line:
+                continue
+            x, y = ast.literal_eval(line)
+            coords.append([float(x), float(y)])
+
+    if len(coords) != n_topics:
+        log.warning(
+            "tpc_coords length mismatch at %s (got %d, expected %d); truncating/padding",
+            coords_path,
+            len(coords),
+            n_topics,
+        )
+    if len(coords) < n_topics:
+        coords.extend([[0.0, 0.0] for _ in range(n_topics - len(coords))])
+    return coords[:n_topics]
 
 load_dotenv()
 
@@ -231,20 +262,8 @@ if __name__ == "__main__":
         s3_mat = tm._s3.toarray() if tm._s3 is not None else None
         top_docs = top_docs_per_topic(X_cat, queries_ordered, topn=TOP_DOCS_PER_TOPIC, s3=s3_mat)
 
-        tm.load_tpc_coords()
-        tpc_coords = [list(c) for c in (tm._coords or [])]
         alphas = tm.get_alphas().tolist()
-
-        # Fallback: if pyLDAvis coords unavailable, use PCA on betas
-        if not tpc_coords:
-            log.info("  [%s] tpc_coords not available — computing PCA fallback from betas", cat)
-            betas_path = Path(lda.model_path) / "TMmodel" / "betas.npy"
-            betas_mat = np.load(str(betas_path))
-            if betas_mat.shape[0] >= 2:
-                coords_arr = PCA(n_components=2, random_state=42).fit_transform(betas_mat)
-                tpc_coords = [[round(float(x), 4), round(float(y), 4)] for x, y in coords_arr]
-            else:
-                tpc_coords = [[0.0, 0.0]] * betas_mat.shape[0]
+        tpc_coords = load_tm_coords(Path(lda.model_path) / "TMmodel", len(alphas))
 
         data_by_category[cat] = {
             "queries": queries_ordered,
