@@ -9,7 +9,7 @@ Choose one path:
 
 ## 1) Run only server.py (preloaded data)
 
-First, clone the repository. Then follow the steps below.
+First, clone the repository. Navigate into the root folder and follow the steps below.
 
 ### Install
 
