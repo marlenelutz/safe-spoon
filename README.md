@@ -28,7 +28,7 @@ Download demo data from [here](https://drive.google.com/file/d/1_gi02Ns2HH9O6OTE
 uv run python server.py
 ```
 
-Open http://127.0.0.1:5000
+The first run takes longer (Python compiles bytecode for all dependencies and the OS file cache is cold). Once you see the log output, open http://127.0.0.1:5000
 
 ### Download query annotations
 You can annotate queries while interacting with the tool. Labels are automatically saved to [data/output/labels.csv](data/output/labels.csv) as soon as you begin annotating. You can also export annotations using the Export button at the top right of the interface.
