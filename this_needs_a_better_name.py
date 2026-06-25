@@ -72,7 +72,7 @@ CATEGORIES = ['Health']
 
 RETRAIN = False
 OPTIMIZE = False
-OPTIMIZE_RANGE = range(30, 41, 5)
+OPTIMIZE_RANGE = range(30, 71, 5)
 
 LLM_PROVIDER = "openai"
 LLM_MODEL    = "gpt-5.4-nano-2026-03-17"
@@ -276,7 +276,11 @@ if __name__ == "__main__":
             "top_docs": top_docs,
             "n": n,
             "model_info": {
-                "model_path": str(lda.model_path),
+                "model_path": (
+                    lda.model_path.relative_to(Path(__file__).parent)
+                    if lda.model_path.is_absolute()
+                    else lda.model_path
+                ).as_posix(),
                 "n_topics": lda.num_topics,
                 **selected_model_info,
             },

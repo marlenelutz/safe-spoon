@@ -50,7 +50,10 @@ def _load_tm_coords_and_alphas(info):
     if not model_path:
         return coords, alphas
 
-    tm_dir = Path(model_path) / "TMmodel"
+    p = Path(model_path)
+    if not p.is_absolute():
+        p = _BASE_DIR / p
+    tm_dir = p / "TMmodel"
 
     coords_path = tm_dir / "tpc_coords.txt"
     if coords_path.is_file():
