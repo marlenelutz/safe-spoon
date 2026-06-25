@@ -41,6 +41,10 @@
 
   /* Mono font for rank badges */
   .mono { font-family: 'DM Mono', 'Spline Sans Mono', ui-monospace, monospace; }
+
+  /* Resizable panel handle */
+  .theme-resize-handle { width: 6px; flex-shrink: 0; cursor: col-resize; background: transparent; border-left: 1px solid var(--border,#e3e6eb); transition: background .15s; }
+  .theme-resize-handle:hover, .theme-resize-handle.is-dragging { background: rgba(11,117,142,0.18); }
 </style>
 </helmet>
 <div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#e8eae6); color: var(--ink,#1f2430); overflow: hidden;">
@@ -195,9 +199,9 @@
   <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     <div style="display: flex; gap: 4px; padding: 9px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
       <button onClick="{{ modeCards }}" style="{{ themeCardsTabStyle }}">Theme cards</button>
-      <button onClick="{{ modeMap }}" style="{{ themeMapTabStyle }}">Map</button>
+      <button onClick="{{ modeMap }}" style="{{ themeMapTabStyle }}">Map view</button>
     </div>
-    <div style="flex: 1; display: flex; overflow: hidden;">
+    <div style="{{ themesRowStyle }}" onMouseMove="{{ onThemePanelMove }}" onMouseUp="{{ onThemePanelUp }}" onMouseLeave="{{ onThemePanelUp }}">
       <!-- left: cards or map -->
       <sc-if value="{{ isCards }}" hint-placeholder-val="{{ true }}">
         <div style="flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0;">
@@ -249,8 +253,10 @@
           </div>
         </div>
       </sc-if>
+      <!-- theme detail resize handle -->
+      <div class="{{ themeHandleClass }}" onMouseDown="{{ onThemePanelDown }}"></div>
       <!-- theme detail -->
-      <div style="width: 400px; flex-shrink: 0; border-left: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto;">
+      <div style="width: {{ themeDetailWidth }}px; flex-shrink: 0; background: var(--panel,#ffffff); overflow-y: auto;">
         <sc-if value="{{ topicSelected }}" hint-placeholder-val="{{ true }}">
           <div style="padding: 22px 24px; animation: ss-fade .25s ease;">
             <div style="font-size: 10px; font-weight: 700; color: var(--accent, #0b758e); text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tDetail.num }}</div>
@@ -437,7 +443,7 @@ class Component extends DCLogic {
       catKey: null,
       gran: 4,
       selCluster: null, focus: null, cCollapsed: new Set(),
-      selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null,
+      selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null, themeDetailWidth: 480, _themePanelDrag: null,
       uMode: 'priority', selUnit: null, uCollapsed: new Set(),
       showIntro: true, showGlossary: false,
       labels, guides,
@@ -755,6 +761,19 @@ class Component extends DCLogic {
   }
   _onMapUp() { this.setState({ _mapDrag: null }); }
   _resetMap() { this.setState({ mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null }); }
+
+  _onThemePanelDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    this.setState({ _themePanelDrag: { startX: e.clientX, startW: this.state.themeDetailWidth } });
+  }
+  _onThemePanelMove(e) {
+    const d = this.state._themePanelDrag;
+    if (!d) return;
+    const newW = Math.max(280, Math.min(800, d.startW + (d.startX - e.clientX)));
+    this.setState({ themeDetailWidth: newW });
+  }
+  _onThemePanelUp() { this.setState({ _themePanelDrag: null }); }
 
   setLabel(qi, field, val) {
     const labels = JSON.parse(JSON.stringify(this.state.labels));
@@ -1146,6 +1165,12 @@ class Component extends DCLogic {
     out.zoomIn = () => { const { mapZoom: z, mapPanX: px, mapPanY: py } = this.state; this.setState({ mapZoom: Math.min(8, z * 1.3) }); };
     out.zoomOut = () => { const { mapZoom: z } = this.state; this.setState({ mapZoom: Math.max(0.3, z / 1.3) }); };
     out.resetMap = () => this._resetMap();
+    out.themeDetailWidth = s.themeDetailWidth || 480;
+    out.onThemePanelDown = (e) => this._onThemePanelDown(e);
+    out.onThemePanelMove = (e) => this._onThemePanelMove(e);
+    out.onThemePanelUp = () => this._onThemePanelUp();
+    out.themesRowStyle = 'flex: 1; display: flex; overflow: hidden;' + (s._themePanelDrag ? 'cursor: col-resize; user-select: none;' : '');
+    out.themeHandleClass = 'theme-resize-handle' + (s._themePanelDrag ? ' is-dragging' : '');
     out.topicSelected = true;
     const tj = s.selTopic;
     const tSelf = this;

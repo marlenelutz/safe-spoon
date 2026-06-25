@@ -9,7 +9,7 @@ priority_weights:
 
 # UI display controls
 ui_display:
-  topic_words_max: 10
+  topic_words_max: 15
   theme_bars_max: 5
   theme_bar_min_weight: 0.1
   group_preview_queries: 3
@@ -18,5 +18,5 @@ ui_display:
   theme_typical_queries_max: 20
   views:
     themes: true
-    groups: true
+    groups: false
     guidelines: false
