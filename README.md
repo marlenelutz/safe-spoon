@@ -1,8 +1,4 @@
-# SAFE-SPOON
-
-<p align="center">
-  <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="150"/>
-</p>
+# SAFE-SPOON <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="60" align="top"/>
 
 ## Quick Start
 
@@ -13,7 +9,7 @@ Choose one path:
 
 ## 1) Run only server.py (preloaded data)
 
-Use this path if you already have precomputed files in [data/output/viz_v5_data.json](data/output/viz_v5_data.json) (and optionally [data/output/labels.csv](data/output/labels.csv)). You can download demo data from [here](https://drive.google.com/file/d/1_gi02Ns2HH9O6OTEmuyuNaV61BaHVb4Z/view?usp=sharing).
+Use this path if you already have precomputed files in `data/output/viz_v5_data.json` (and optionally `data/output/labels.csv`). You can download demo data from [here](https://drive.google.com/file/d/1_gi02Ns2HH9O6OTEmuyuNaV61BaHVb4Z/view?usp=sharing).
 
 ### Install
 
