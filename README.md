@@ -1,9 +1,8 @@
+# SAFE-SPOON
+
 <p align="center">
-  <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="600"/>
+  <img src="https://github.com/marlenelutz/safe-spoon/blob/main/static/jelly_logo4.png" width="150"/>
 </p>
-===========================
-SAFE-SPOON
-===========================
 
 ## Quick Start
 
