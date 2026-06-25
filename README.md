@@ -30,6 +30,9 @@ uv run python server.py
 
 Open http://127.0.0.1:5000
 
+### Download query annotations
+You can annotate queries while interacting with the tool. Labels are automatically saved to [data/output/labels.csv](data/output/labels.csv) as soon as you begin annotating. You can also export annotations using the Export button at the top right of the interface.
+
 ## 2) Run full package workflow
 
 Use this path if you want to regenerate topic models, tree structure, and UI JSON from dataset files.

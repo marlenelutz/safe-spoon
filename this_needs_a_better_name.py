@@ -70,8 +70,8 @@ OUTPUT_JSON = "data/output/viz_v5_data.json"
 CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
 #CATEGORIES = ['Health']
 
-RETRAIN = True
-OPTIMIZE = True
+RETRAIN = False
+OPTIMIZE = False
 OPTIMIZE_RANGE = range(30, 51, 5)
 
 LLM_PROVIDER = "openai"
