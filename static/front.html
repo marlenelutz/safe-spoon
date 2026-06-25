@@ -45,6 +45,11 @@
   /* Resizable panel handle */
   .theme-resize-handle { width: 6px; flex-shrink: 0; cursor: col-resize; background: transparent; border-left: 1px solid var(--border,#e3e6eb); transition: background .15s; }
   .theme-resize-handle:hover, .theme-resize-handle.is-dragging { background: rgba(11,117,142,0.18); }
+
+  /* Pagination buttons */
+  .pager-btn { border: 1px solid var(--border,#dde0da); background: transparent; font-size: 12px; font-weight: 500; padding: 5px 11px; border-radius: 7px; font-family: inherit; }
+  .pager-btn-on { color: var(--ink2,#545c55); cursor: pointer; }
+  .pager-btn-off { color: var(--ink4,#b8c0b9); cursor: default; }
 </style>
 </helmet>
 <div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#e8eae6); color: var(--ink,#1f2430); overflow: hidden;">
@@ -184,6 +189,15 @@
                 </div>
               </sc-for>
             </div>
+            <sc-if value="{{ gDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb); max-width: 720px;">
+                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ gDetail.queryPager.label }}</span>
+                <div style="display: flex; gap: 6px;">
+                  <button onClick="{{ gDetail.queryPager.onPrev }}" class="{{ gDetail.queryPager.prevClass }}">← Prev</button>
+                  <button onClick="{{ gDetail.queryPager.onNext }}" class="{{ gDetail.queryPager.nextClass }}">Next →</button>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ noCluster }}" hint-placeholder-val="{{ false }}">
@@ -279,6 +293,15 @@
                 </div>
               </sc-for>
             </div>
+            <sc-if value="{{ tDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb);">
+                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ tDetail.queryPager.label }}</span>
+                <div style="display: flex; gap: 6px;">
+                  <button onClick="{{ tDetail.queryPager.onPrev }}" class="{{ tDetail.queryPager.prevClass }}">← Prev</button>
+                  <button onClick="{{ tDetail.queryPager.onNext }}" class="{{ tDetail.queryPager.nextClass }}">Next →</button>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
       </div>
@@ -400,6 +423,15 @@
                 </div>
               </sc-for>
             </div>
+            <sc-if value="{{ uDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb);">
+                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ uDetail.queryPager.label }}</span>
+                <div style="display: flex; gap: 6px;">
+                  <button onClick="{{ uDetail.queryPager.onPrev }}" class="{{ uDetail.queryPager.prevClass }}">← Prev</button>
+                  <button onClick="{{ uDetail.queryPager.onNext }}" class="{{ uDetail.queryPager.nextClass }}">Next →</button>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ noUnit }}" hint-placeholder-val="{{ false }}">
@@ -444,6 +476,7 @@ class Component extends DCLogic {
       gran: 4,
       selCluster: null, focus: null, cCollapsed: new Set(),
       selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null, themeDetailWidth: 480, _themePanelDrag: null,
+      gQueryPage: 0, tQueryPage: 0, uQueryPage: 0,
       uMode: 'priority', selUnit: null, uCollapsed: new Set(),
       showIntro: true, showGlossary: false,
       labels, guides,
@@ -727,20 +760,20 @@ class Component extends DCLogic {
     this.setState({ view: v, showGlossary: false });
   }
   pickCat(k) {
-    this.setState({ catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(), gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0 });
+    this.setState({ catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(), gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0, gQueryPage: 0, tQueryPage: 0, uQueryPage: 0 });
   }
   setGran(v) { this.setState({ gran: +v, selCluster: null, focus: null }); }
   selectCluster(node) {
-    this.setState({ selCluster: node.id, focus: node.id, cCollapsed: new Set() });
+    this.setState({ selCluster: node.id, focus: node.id, cCollapsed: new Set(), gQueryPage: 0 });
   }
-  setFocus(id) { this.setState({ focus: id }); }
+  setFocus(id) { this.setState({ focus: id, gQueryPage: 0 }); }
   toggleCollapse(setKey, id) {
     const s = new Set(this.state[setKey]);
     if (s.has(id)) s.delete(id); else s.add(id);
     this.setState({ [setKey]: s });
   }
-  selectUnit(id) { this.setState({ selUnit: id }); }
-  selectTopic(j) { this.setState({ selTopic: j }); }
+  selectUnit(id) { this.setState({ selUnit: id, uQueryPage: 0 }); }
+  selectTopic(j) { this.setState({ selTopic: j, tQueryPage: 0 }); }
 
   _onMapWheel(e) {
     const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
@@ -862,6 +895,43 @@ class Component extends DCLogic {
   _labelChk(on) {
     return 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:' + (on ? '600' : '400') + ';cursor:pointer;user-select:none;padding:3px 8px;border-radius:6px;transition:all .12s;border:1px solid ' +
       (on ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (on ? 'var(--soft,#d9eff3)' : 'transparent') + ';color:' + (on ? 'var(--accent,#0b758e)' : 'var(--ink3,#8a9389)') + ';';
+  }
+
+  // ---------- pagination ----------
+  _queryRow(qi) {
+    const cat = this.cat();
+    const l = this.getLabel(qi);
+    return {
+      qi, text: cat.queries[qi],
+      trash: l.trash, demo: l.demo,
+      trashStyle: this._labelChk(l.trash), demoStyle: this._labelChk(l.demo),
+      onTrash: (e) => this.setLabel(qi, 'trash', e.target.checked),
+      onDemo: (e) => this.setLabel(qi, 'demo', e.target.checked),
+    };
+  }
+  _paginate(qis, page) {
+    const PS = 20;
+    const total = qis.length;
+    const totalPages = Math.max(1, Math.ceil(total / PS));
+    const p = Math.min(Math.max(0, page), totalPages - 1);
+    const from = p * PS;
+    const to = Math.min(from + PS, total);
+    return { items: qis.slice(from, to), page: p, totalPages, total, hasPrev: p > 0, hasNext: p < totalPages - 1,
+      label: total === 0 ? '' : (from + 1) + '–' + to + ' of ' + total };
+  }
+  _buildPager(allQis, page, setPage) {
+    const pg = this._paginate(allQis, page);
+    return {
+      items: pg.items.map(qi => this._queryRow(qi)),
+      pager: {
+        show: pg.totalPages > 1,
+        label: pg.label,
+        prevClass: 'pager-btn ' + (pg.hasPrev ? 'pager-btn-on' : 'pager-btn-off'),
+        nextClass: 'pager-btn ' + (pg.hasNext ? 'pager-btn-on' : 'pager-btn-off'),
+        onPrev: pg.hasPrev ? () => setPage(pg.page - 1) : () => {},
+        onNext: pg.hasNext ? () => setPage(pg.page + 1) : () => {},
+      },
+    };
   }
 
   // ---------- breadcrumb / path ----------
@@ -1044,6 +1114,7 @@ class Component extends DCLogic {
           style: 'font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:7px;' + (last ? 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);' : 'color:var(--accent,#0b758e);'),
         };
       });
+      const gPd = this._buildPager(this.reprOf(focusNode), s.gQueryPage, p => this.setState({ gQueryPage: p }));
       out.gDetail = {
         title: this.unitLabel(clRoot),
         subtitle: clRoot.size + ' queries in this group',
@@ -1051,10 +1122,11 @@ class Component extends DCLogic {
         themeBars: this.themeBars(focusNode),
         treeRows: this.clusterRows(clRoot),
         queryHeader: (focusNode.id === clRoot.id ? 'All queries' : 'Queries in this sub-group') + ' (' + focusNode.size + ')',
-        queries: this.queryRows(focusNode),
+        queries: gPd.items,
+        queryPager: gPd.pager,
       };
     } else {
-      out.gDetail = { title: '', subtitle: '', breadcrumb: [], themeBars: [], treeRows: [], queryHeader: '', queries: [] };
+      out.gDetail = { title: '', subtitle: '', breadcrumb: [], themeBars: [], treeRows: [], queryHeader: '', queries: [], queryPager: { show: false } };
     }
 
     // ----- themes -----
@@ -1174,20 +1246,13 @@ class Component extends DCLogic {
     out.topicSelected = true;
     const tj = s.selTopic;
     const tSelf = this;
+    const tPd = this._buildPager(cat.topDocs[tj] || [], s.tQueryPage, p => this.setState({ tQueryPage: p }));
     out.tDetail = {
       num: tj + 1, label: cat.topics[tj].label,
       words: cat.topics[tj].words.map(w => ({ w })),
       pctLabel: Math.round(displayShare[tj] * 100) + '%',
-      queries: (cat.topDocs[tj] || []).slice(0, this.UI.theme_typical_queries_max).map(qi => {
-        const l = tSelf.getLabel(qi);
-        return {
-          qi, text: cat.queries[qi],
-          trash: l.trash, demo: l.demo,
-          trashStyle: tSelf._labelChk(l.trash), demoStyle: tSelf._labelChk(l.demo),
-          onTrash: (e) => tSelf.setLabel(qi, 'trash', e.target.checked),
-          onDemo: (e) => tSelf.setLabel(qi, 'demo', e.target.checked),
-        };
-      }),
+      queries: tPd.items,
+      queryPager: tPd.pager,
     };
 
     // ----- units -----
@@ -1235,7 +1300,7 @@ class Component extends DCLogic {
         priority: Math.round((u.priority || 0) * 100) + '%',
         statusChip: this._statusChip(status), statusLabel: this._statusLabel(status),
         themeBars: this.themeBars(n),
-        queries: this.queryRows(n),
+        ...(() => { const uPd = this._buildPager(this.reprOf(n), s.uQueryPage, p => this.setState({ uQueryPage: p })); return { queries: uPd.items, queryPager: uPd.pager }; })(),
         guideline: this.guideText(s.selUnit),
       };
       out.onGuidelineInput = (e) => this.setGuide(s.selUnit, e.target.value, null);
@@ -1245,7 +1310,7 @@ class Component extends DCLogic {
       out.markDoneStyle = 'border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:12px;padding:7px 14px;border-radius:7px;transition:all .15s;' +
         (status === 'done' ? 'background:var(--accent,#0b758e);color:var(--panel,#f7f8f6);' : 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);');
     } else {
-      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], guideline: '' };
+      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], queryPager: { show: false }, guideline: '' };
       out.onGuidelineInput = () => {}; out.suggestDraft = () => {}; out.markDone = () => {};
       out.markDoneLabel = ''; out.markDoneStyle = 'display:none;';
     }

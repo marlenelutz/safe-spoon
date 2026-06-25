@@ -9,7 +9,7 @@ Choose one path:
 
 ## 1) Run only server.py (preloaded data)
 
-Use this path if you already have precomputed files in `data/output/viz_v5_data.json` (and optionally `data/output/labels.csv`). You can download demo data from [here](https://drive.google.com/file/d/1_gi02Ns2HH9O6OTEmuyuNaV61BaHVb4Z/view?usp=sharing).
+First, clone the repository. Navigate into the root folder and follow the steps below.
 
 ### Install
 
@@ -19,6 +19,9 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
+### Get the data
+Download demo data from [here](https://drive.google.com/file/d/1_gi02Ns2HH9O6OTEmuyuNaV61BaHVb4Z/view?usp=sharing). Unzip the data and put it in the root folder.
+
 ### Start server
 
 ```bash
@@ -26,9 +29,6 @@ uv run python server.py
 ```
 
 Open http://127.0.0.1:5000
-
-Notes:
-- Saved labels file: [data/output/labels.csv](data/output/labels.csv)
 
 ## 2) Run full package workflow
 

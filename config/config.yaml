@@ -14,8 +14,8 @@ ui_display:
   theme_bar_min_weight: 0.1
   group_preview_queries: 3
   representative_queries_max: 40
-  topic_top_docs_generated: 20
-  theme_typical_queries_max: 20
+  topic_top_docs_generated: 500
+  theme_typical_queries_max: 500
   views:
     themes: true
     groups: false

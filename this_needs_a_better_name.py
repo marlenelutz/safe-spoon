@@ -192,7 +192,7 @@ if __name__ == "__main__":
                 alpha=0.1,
                 eta=0.01,
                 preprocessor=preprocessor,
-                do_labeller=False,
+                do_labeller=True,
                 do_summarizer=False,
                 llm_provider=LLM_PROVIDER,
                 llm_model_type=LLM_MODEL,
