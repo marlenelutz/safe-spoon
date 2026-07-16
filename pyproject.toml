@@ -25,12 +25,19 @@ dependencies = [
     "click>=8.4.1",
     "kneed>=0.8",
     "Flask>=3.1.3",
-    "plotly>=6.8.0"
+    "plotly>=6.8.0",
+    "sentence-transformers>=3.0",
+    "umap-learn>=0.5",
+    "matplotlib>=3.8"
 ]
 
 [project.optional-dependencies]
 viz = ["pyLDAvis>=3.4"]
 dev = ["pytest"]
+
+[project.scripts]
+safe-spoon-build = "safe_spoon.pipeline.cli:main"
+safe-spoon-reset-annotations = "safe_spoon.annotation.reset:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

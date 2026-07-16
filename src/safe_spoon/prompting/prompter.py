@@ -329,6 +329,7 @@ class Prompter:
         question: str,
         use_context: bool = False,
         temperature: float = None,
+        seed: int = None,
     ) -> Union[str, List[str]]:
         """Execute a prompt given a system prompt template path and a question."""
         system_prompt_template = None
@@ -337,6 +338,8 @@ class Prompter:
 
         if temperature is not None:
             self.params["temperature"] = temperature
+        if seed is not None:
+            self.params["seed"] = seed
         params_tuple = tuple(sorted(self.params.items()))
 
         print("Cache key:", hash_input(system_prompt_template, question, self.model_type, self.backend, params_tuple, self.context, use_context))

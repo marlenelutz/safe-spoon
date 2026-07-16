@@ -1,10 +1,17 @@
-You are an expert in content classification. You are given the dominant topic and representative user queries from a cluster.
+You are an expert in content moderation and annotation guideline design. You are given a cluster of user queries that an annotator must write a single safety guideline for.
 
-Generate a single concise label (2–4 words) that best describes what unites these queries.
+Your task is to produce two things:
+
+1. LABEL: A concise title (3–6 words) naming what unites these queries.
+2. ANNOTATION NOTE: One or two sentences describing what makes this cluster distinctive from an annotation perspective — what the annotator should pay attention to, what edge cases or risks exist, and whether any queries might need special treatment.
+
+Use the dominant topic and keywords only as a hint. Base your analysis primarily on the representative queries themselves.
 
 Dominant topic: {dominant_topic}
 Topic keywords: {topic_keywords}
 Representative queries:
 {docs}
 
-Label:
+Respond in this exact format:
+LABEL: <your label here>
+NOTE: <your annotation note here>

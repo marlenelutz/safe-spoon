@@ -1,13 +1,82 @@
-# Annotation unit stopping rules
-min_size: 50
-purity_factor: 5.0    # max_purity = purity_factor / K  (K = numero de topicos del dominio)
+# logging configuration
+logger:
+  dir_logger: data/logs
+  console_log: True
+  file_log: True
+  log_level: INFO
+  logger_name: tova
+  N_log_keep: 5 # maximum number of log files to keep
 
+
+# Paths
+paths:
+  input_file: data/dataset/automatically-labeled-data/high_risk_automatically_labelled_filtered_cleaned.csv
+  reference_corpus: data/reference_corpus.csv
+  reference_corpus_preprocessed: data/reference_corpus_preprocessed.csv
+  output_json: data/output/viz_v5_data.json
+  labels_csv: data/output/labels.csv
+  annotation_db: data/output/annotation.db
+
+# Data
+data:
+  content_col: content
+  label_col: high_risk_label
+  categories:                        
+    - Economic and Financial
+    - Health
+  # - Moral Values and Religion
+  active_categories: # the ones we actually run the pipeline on            
+    - Economic and Financial         
+  oov_threshold: 0.1
+  similarity_threshold: 0.85 # for the filtering of the original Tanise's dataset and the construction of the reference corpus
+
+# LDA
+lda:
+  n_topics: 60
+  iters: 1500
+  alpha: 0.1
+  eta: 0.01
+  min_df: 1
+  max_df: 0.6
+  spacy_model: en_core_web_lg
+  retrain: false
+  optimize: false
+  optimize_range: [30, 80, 5]
+
+# sbert
+embedding:
+  model: all-MiniLM-L6-v2
+  batch_size: 64
+
+# hierarchical clustering / annotation units
+clustering:
+  linkage_method: complete
+  n_repr_queries: 50
+  n_cut_levels: 40
+  min_size: 20          # hard floor: nodes at/below this size always stop
+  max_rel_dist: 0.40    # normalised distance threshold for stopping:
+                        # node.dist / root.dist <= this -> cohesive, stop
+                        # needs to be tuned with the distance distribution of thee tree: p25 ≈ 0.30 (fine-grained)  p50 ≈ 0.40 (medium) p75 ≈ 0.51 (coarse)
+
+# priority queue weights
 priority_weights:
-  topic_mixture: 0.5
-  size: 0.3
-  merge_balance: 0.2
+  topic_mixture: 0.35  # 1 - dominant_weight: thematic ambiguity
+  size: 0.25           # log-normalised size
+  merge_balance: 0.15  # how informative was the merge that created this unit
 
-# UI display controls
+# LLM settings 
+llm:
+  provider: ollama
+  model: qwen3:8b
+  server: http://kumo01.tsc.uc3m.es:11434 # null for default OpenAI endpoint
+  api_key: null                           # null = read from env var
+
+  # Rubric-suggestion LLM calls; inherits the values above when omitted
+  rubric_suggestion:
+    provider: null
+    model: null
+    server: null
+
 ui_display:
   topic_words_max: 15
   theme_bars_max: 5
@@ -19,7 +88,7 @@ ui_display:
   views:
     themes: true
     groups: false
-    guidelines: false
+    guidelines: true
 
 # Query annotation checkboxes
 query_labels:

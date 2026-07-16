@@ -10,7 +10,7 @@ from safe_spoon.clustering import AnnotationUnitModel
 from safe_spoon.utils.data_utils import corpus_for_category, load_corpus_df
 from safe_spoon.prompting import _default_prompt_path
 from safe_spoon.topic_modeling.lda import LDATopicModel
-from safe_spoon.utils.common import load_annotation_unit_config
+from safe_spoon.utils.common import load_yaml_config_file
 
 load_dotenv()
 
@@ -37,7 +37,7 @@ TOPIC_PROMPT_VARIANTS = {
 # }
 
 # # Annotation unit config
-# _au_cfg = load_annotation_unit_config()
+# _au_cfg = load_yaml_config_file()
 # MIN_SIZE = _au_cfg["min_size"]
 # MAX_PURITY = _au_cfg["max_purity"]
 # PW_MIXTURE = _au_cfg["pw_mixture"]

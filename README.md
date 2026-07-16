@@ -71,8 +71,13 @@ Required columns in the main input CSV:
 ### Run pipeline
 
 ```bash
-uv run python this_needs_a_better_name.py
+uv run safe-spoon-build
 ```
+
+Useful flags: `--retrain`, `--optimize`, `--categories "Health"` (repeatable),
+`--config path/to/config.yaml`. All other pipeline parameters (LDA settings,
+clustering thresholds, embedding model, paths, ...) are read from
+[config/config.yaml](config/config.yaml) — edit that file instead of passing flags.
 
 Then launch the UI:
 
@@ -82,9 +87,40 @@ uv run python server.py
 
 Open http://127.0.0.1:5000
 
-## Helper scripts
+## Command reference
 
-- [aux_scripts/data_filtering.py](aux_scripts/data_filtering.py): clean/filter dataset and write near-duplicate report.
-- [aux_scripts/get_reference_corpus_data.py](aux_scripts/get_reference_corpus_data.py): build reference corpus.
-- [aux_scripts/optimize_prompts.py](aux_scripts/optimize_prompts.py): compare prompt variants for topic labels.
+All commands assume the venv from one of the Install steps above is active (or prefix with `uv run`).
 
+### Installed CLI commands
+
+| Command | What it does |
+| --- | --- |
+| `safe-spoon-build` | Runs the full pipeline (LDA training, clustering, annotation-unit labelling) and writes `data/output/viz_v5_data.json`. Flags: `--retrain`, `--optimize`, `--categories "Health"` (repeatable), `--config path/to/config.yaml`. |
+| `safe-spoon-reset-annotations` | Wipes rubrics, risk profiles, LLM suggestions and unit lineage from the annotation database (`data/output/annotation.db`). Flags: `--category "Health"` (repeatable, defaults to all), `--db-path`, `--config`, `--yes` to skip the confirmation prompt. See [src/safe_spoon/annotation/reset.py](src/safe_spoon/annotation/reset.py). |
+
+### Servers
+
+| Command | What it does |
+| --- | --- |
+| `python server.py` | Starts the Flask webapp (topic viz, annotation UI) at `http://127.0.0.1:5000`. |
+
+### Data-prep scripts (`aux_scripts/`)
+
+Run with `python aux_scripts/<name>.py`.
+
+| Script | What it does |
+| --- | --- |
+| [data_filtering.py](aux_scripts/data_filtering.py) | Cleans/filters the raw dataset (dedup, empty/name removal) and writes a near-duplicate report. |
+| [get_reference_corpus_data.py](aux_scripts/get_reference_corpus_data.py) | Builds the reference corpus used to preprocess/score the LDA models. |
+| [filter.sh](aux_scripts/filter.sh) | Runs `data_filtering.py` then `get_reference_corpus_data.py` back to back. |
+| [optimize_prompts.py](aux_scripts/optimize_prompts.py) | Compares prompt variants for topic/annotation-unit labelling. |
+| [diagnose_unit_coherence.py](aux_scripts/diagnose_unit_coherence.py) `[category]` | Compares clustering configs (linkage method, purity factor, embeddings vs. Bhattacharyya) and reports unit coherence stats. Defaults to the first `active_categories` entry in config.yaml. |
+| [sample_units_for_review.py](aux_scripts/sample_units_for_review.py) `[category]` | Samples annotation units under different clustering configs for manual review. Defaults to the first `active_categories` entry in config.yaml. |
+| [visualize_annotations.py](aux_scripts/visualize_annotations.py) | Builds UMAP/PCA plots of query embeddings from `data/safespoon_annotations_top5.csv`, colored by category/flag. |
+
+## TODOs on filtering
+
+- maybe we should exclude questions that ask for closed or one-word answers 
+- I still saw quite a lot of duplicates, maybe we cna lower the threhsold for fuzzy matching again
+- the personal details category is quite fuzzy, I need to rethink if we want to exclude all perosnal details or just some
+- we need to think about how to deal with the NAME tags

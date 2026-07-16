@@ -1,15 +1,31 @@
-"""Hierarchical clustering utilities for topic-model outputs."""
+"""Hierarchical clustering utilities for topic-model outputs / embeddings."""
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster, to_tree
+import torch
+from scipy.cluster.hierarchy import linkage, to_tree
 from scipy.spatial.distance import squareform
+from sentence_transformers.util import cos_sim, normalize_embeddings
 
 
-def bhattacharyya_matrix(X: np.ndarray, eps = 1e-10) -> np.ndarray:
-    """Compute Bhattacharyya distance matrix."""
-    
+def bhattacharyya_matrix(X: np.ndarray, eps=1e-10) -> np.ndarray:
+    """Compute Bhattacharyya distance matrix over a theta matrix.
+
+    Parameters
+    ----------
+    X:
+        Dense matrix of shape (n_docs, n_topics).  Intended for LDA theta
+        distributions but works for any dense representation.
+    eps:
+        Small value added to avoid log(0) and division by zero.
+
+    Returns
+    -------
+    D : np.ndarray of shape (n_docs, n_docs)
+        Symmetric distance matrix with zeros on the diagonal.
+    """
+
     X_sqrt = np.sqrt(X + eps)
     BC = X_sqrt @ X_sqrt.T
     BC = np.clip(BC, eps, 1.0)
@@ -18,49 +34,144 @@ def bhattacharyya_matrix(X: np.ndarray, eps = 1e-10) -> np.ndarray:
     return D
 
 
+def cosine_distance_matrix(X: np.ndarray) -> np.ndarray:
+    """Compute pairwise cosine distance matrix (1 - cosine_similarity).
+
+    Parameters
+    ----------
+    X:
+        Dense matrix of shape (n_docs, n_dims).
+
+    Returns
+    -------
+    D : np.ndarray of shape (n_docs, n_docs)
+        Symmetric distance matrix with zeros on the diagonal and values
+        in [0, 2].  Values are clipped to [0, 2] to guard against
+        floating-point rounding outside that range.
+    """
+    X_norm = normalize_embeddings(torch.from_numpy(X.astype(np.float32)))
+    sim = cos_sim(X_norm, X_norm).numpy()
+    D = 1.0 - sim
+    D = np.clip(D, 0.0, 2.0)
+    np.fill_diagonal(D, 0.0)
+    return D
+
+
+def intra_cluster_similarity(
+    indices: List[int],
+    embeddings: np.ndarray,
+) -> float:
+    """Mean pairwise cosine similarity among the embeddings of a set of documents.
+
+    This is the cohesion signal used as a stopping criterion in build_unit_tree:
+    a high value means the documents in this node are semantically similar to
+    each other and can likely be covered by a single annotation rubric.
+
+    Parameters
+    ----------
+    indices:
+        Global document indices whose embeddings to compare.
+    embeddings:
+        Dense embedding matrix, globally indexed (shape n_docs x n_dims).
+
+    Returns
+    -------
+    float in [0, 1]
+        Mean pairwise cosine similarity.  Returns 1.0 for single-document
+        clusters (trivially self-similar) and 0.0 when embeddings is None.
+    """
+    if embeddings is None or len(indices) <= 1:
+        return 1.0
+    vecs = normalize_embeddings(
+        torch.from_numpy(embeddings[indices].astype(np.float32))
+    )
+    sim = cos_sim(vecs, vecs).numpy()
+    # Mean of upper triangle (exclude self-similarity on diagonal)
+    n = len(indices)
+    mask = np.triu(np.ones((n, n), dtype=bool), k=1)
+    return float(sim[mask].mean())
+
+
 def most_representative(
     indices: List[int],
     X: np.ndarray,
     n: int = 5,
     max_medoid: int = 200,
-    valid_mask: np.ndarray = None,
     min_dominant_weight: float = 0.15,
+    embeddings: Optional[np.ndarray] = None,
 ) -> List[int]:
-    """Return the indices of the n-most representative items among indices. If cluster is small, uses exact medoid search otherwise uses centroid-based approximation.
+    """Return the indices of the n most representative items among indices.
 
-    If a valid_mask is supplied, only items with valid_mask[i] == True are considered; if no valid items remain, falls back to the full set.
+    Uses exact medoid search for small clusters and centroid-based
+    approximation for large ones.
 
-    min_dominant_weight filters out OOV/collapsed queries (those whose dominant
-    topic weight is below the threshold) before medoid selection, so that
-    representatives always carry real topical signal.  Falls back to the full
-    candidate set only when no informative items are available.
+    The representation space is chosen adaptively:
+
+    * Embeddings are used when "embeddings" is provided AND the mean
+      dominant LDA weight of the candidates is weak (i.e., < min_dominant_weight x 2). .
+
+    * Thetas are used otherwise. The medoid in theta space is the
+      query whose topic distribution is closest to the cluster average, i.e.
+      the most thematically representative query.
+
+    Parameters
+    ----------
+    indices:
+        Global document indices to select from.
+    X:
+        Full document-topic matrix, globally indexed.
+    n:
+        Number of representatives to return.
+    max_medoid:
+        Use exact pairwise medoid search below this size; centroid
+        approximation above it.
+    min_dominant_weight:
+        OOV threshold.  Queries whose dominant topic weight is below this
+        value (flat LDA prior) or above 0.999 (single surviving token) are
+        excluded before selection.  Falls back to full candidate set only
+        when no informative items remain.
+    embeddings:
+        Full embedding matrix, globally indexed (same row order as X).
+        When provided and LDA signal is weak, representatives are selected
+        as the queries closest to the embedding centroid of the cluster.
     """
-    # Apply length filter first, fall back to full set if nothing survives
-    if valid_mask is not None:
-        candidates = [i for i in indices if valid_mask[i]]
-        if not candidates:
-            candidates = list(indices)
-    else:
-        candidates = list(indices)
 
-    # Informativeness filter: exclude OOV (uniform prior) and vocabulary-collapsed
-    # (single surviving token -> theta_k = 1.0) queries from representative selection.
-    informative = [i for i in candidates if X[i].max() >= min_dominant_weight and X[i].max() < 0.999]
-    if len(informative) >= n:
+    candidates = list(indices)
+
+    # exclude queries with flat thetas
+    informative = [
+        i for i in candidates
+        if X[i].max() >= min_dominant_weight and X[i].max() < 0.999
+    ]
+    if informative:
         candidates = informative
-    elif len(informative) > 0:
-        candidates = informative  # take what we have even if < n
 
     if len(candidates) <= n:
         return candidates
 
+    # decide embbeddings vs thetas
+    mean_dom = float(X[candidates].max(axis=1).mean())
+    use_embeddings = (
+        embeddings is not None
+        and mean_dom < min_dominant_weight * 2
+    )
+
+    if use_embeddings:
+        vecs = embeddings[candidates].astype(np.float32)
+        centroid = vecs.mean(axis=0, keepdims=True)
+        sims = cos_sim(vecs, centroid).numpy().squeeze()
+        top_idx = np.argsort(-sims)[:n]
+        return [candidates[int(i)] for i in top_idx]
+
     eps = 1e-10
     vecs = X[candidates]
     if len(candidates) <= max_medoid:
+        # Exact medoid: minimize mean Bhattacharyya distance to all others
         sq = np.sqrt(vecs + eps)
         D = -np.log(np.clip(sq @ sq.T, eps, 1.0))
         scores = D.mean(axis=1)
     else:
+        # Centroid approximation: distance to mean theta vector
         centroid = vecs.mean(axis=0)
         scores = -np.log(np.clip(
             np.sqrt(vecs + eps) @ np.sqrt(centroid + eps), eps, 1.0
@@ -74,6 +185,8 @@ def build_tree(
     X: np.ndarray,
     queries: List[str],
     n_repr: int = 5,
+    min_dominant_weight: float = 0.15,
+    embeddings_full: Optional[np.ndarray] = None,
 ) -> dict:
     """Build a nested-dict tree from a scipy ClusterNode.
 
@@ -89,13 +202,20 @@ def build_tree(
         Full list of query strings (indexed by global index).
     n_repr:
         Number of representative documents to store per internal node.
+    min_dominant_weight:
+        Forwarded to most_representative()
+    embeddings_full:
+        Full embedding matrix, globally indexed.  When provided, forwarded
+        to most_representative() so that representatives are selected in
+        embedding space when LDA signal is weak.
+
+    Returns
+    -------
+    tree : dict
+        Nested dict representation of the tree, with each node containing
+        id, name, size, dist, depth, repr, and children keys.
     """
-    # Build a length-validity mask from the queries in this tree (10th–90th percentile word count)
-    word_counts = np.array([len(queries[i].split()) for i in global_indices])
-    lo, hi = np.quantile(word_counts, [0.10, 0.90])
-    valid_mask = np.zeros(len(queries), dtype=bool)
-    for local_i, global_i in enumerate(global_indices):
-        valid_mask[global_i] = lo <= word_counts[local_i] <= hi
+
     stack = [(root_node, None, False)]
     ordered = []
     node_dict = {}
@@ -122,7 +242,7 @@ def build_tree(
             ordered.append(node.id)
         else:
             d = {
-                "id": f"inner_{id(node)}",
+                "id": f"inner_{node.id}",
                 "name": "",
                 "size": 0,
                 "dist": round(float(node.dist), 4),
@@ -156,7 +276,13 @@ def build_tree(
         d["name"] = f"{d['size']} queries"
 
         all_ids = _gather_leaf_indices(left) + _gather_leaf_indices(right)
-        d["repr"] = most_representative(all_ids, X, n=n_repr, valid_mask=valid_mask)
+        d["repr"] = most_representative(
+            all_ids,
+            X,
+            n=n_repr,
+            min_dominant_weight=min_dominant_weight,
+            embeddings=embeddings_full,
+        )
 
     for d in node_dict.values():
         for k in ["_parent_id", "_is_right", "_scipy_id", "_left_id", "_right_id"]:
@@ -200,108 +326,107 @@ def flatten_tree(root: dict) -> Tuple[List[dict], str]:
     return flat, root["id"]
 
 
-def cluster_by_category(
-    X: np.ndarray,
-    labels: List[str],
-    queries: List[str],
-    n_cut_levels: int = 40,
+def build_flat_tree(
+    thetas,
+    indices,
+    queries,
     linkage_method: str = "average",
     n_repr: int = 5,
-) -> dict:
-    """Run Bhattacharyya agglomerative clustering per category.
-
-    Parameters
-    ----------
-    X:
-        Document-topic matrix, shape (n_docs, n_topics).
-    labels:
-        Category label for each document (same length as X).
-    queries:
-        Raw query strings (same length as X).
-    n_cut_levels:
-        Number of distance thresholds at which to compute flat cluster assignments.
-    linkage_method:
-        Linkage criterion passed to scipy.cluster.hierarchy.linkage.
-    n_repr:
-        Number of representative documents per tree node.
-
-    Returns
-    -------
-    trees_by_category : dict
-        Mapping from category name to a dict with keys
-        nodes, root_id, indices, cuts, min_dist,
-        max_dist, n.
-    """
-    categories = sorted(set(labels))
-    trees_by_category = {}
-
-    for cat in categories:
-        cat_indices = [i for i, l in enumerate(labels) if l == cat]
-        cat_n = len(cat_indices)
-        if cat_n < 2:
-            continue
-
-        X_cat = X[cat_indices]
-        D_full = bhattacharyya_matrix(X_cat)
-        D_cond = squareform(D_full, checks=False)
-        Z = linkage(D_cond, method=linkage_method)
-
-        min_d = float(Z[:, 2].min())
-        max_d = float(Z[:, 2].max())
-
-        cuts = []
-        for d in np.linspace(min_d * 0.99, max_d * 1.01, n_cut_levels):
-            assignment = fcluster(Z, t=d, criterion="distance").tolist()
-            cuts.append({
-                "distance": round(float(d), 4),
-                "n_clusters": len(set(assignment)),
-                "assignment": assignment,
-            })
-
-        root_node, _ = to_tree(Z, rd=True)
-        tree = build_tree(root_node, cat_indices, X, queries, n_repr=n_repr)
-        flat_nodes, root_id = flatten_tree(tree)
-
-        trees_by_category[cat] = {
-            "nodes": flat_nodes,
-            "root_id": root_id,
-            "indices": cat_indices,
-            "cuts": cuts,
-            "min_dist": round(min_d, 4),
-            "max_dist": round(max_d, 4),
-            "n": cat_n,
-        }
-
-    return trees_by_category
-
-
-def build_flat_tree(thetas, indices, queries, linkage_method="average", n_repr=5, X_full=None):
-    """Bhattacharyya distance -> linkage -> build_tree -> flatten_tree in one call.
+    X_full: Optional[np.ndarray] = None,
+    embeddings: Optional[np.ndarray] = None,
+    embeddings_full: Optional[np.ndarray] = None,
+    min_dominant_weight: float = 0.15,
+) -> Tuple[list, str, np.ndarray]:
+    """Wrapper around scipy linkage and to_tree to build a flat tree representation from a document-topic or embedding matrix.
 
     Parameters
     ----------
     thetas:
-        Document-topic matrix for the subset to cluster (shape n_valid x K).
-        Used only for computing Bhattacharyya distances.
+        Document-topic matrix for the clustered subset (shape n_valid x K).
     indices:
-        Global indices mapping scipy leaf ids → rows in X_full / positions in queries.
-        Pass valid_local (not list(range(n_valid))) so leaf IDs are globally meaningful.
+        Global indices mapping scipy leaf ids  rows in X_full / positions
+        in queries.
     queries:
-        Full query list indexed by global position (same length as the full corpus).
+        Full query list indexed by global position.
+    linkage_method:
+        Linkage criterion forwarded to scipy.cluster.hierarchy.linkage.
+    n_repr:
+        Number of representative documents stored per internal node.
     X_full:
         Full document-topic matrix (all docs, globally indexed).  Used for
-        representative selection inside build_tree.  Defaults to thetas when omitted
-        (safe only when indices == list(range(len(thetas)))).
+        representative selection and topic characterisation.  Defaults to
+        thetas when omitted.
+    embeddings:
+        Optional dense embedding matrix for the clustered subset
+        (n_valid x n_dims).  When supplied, pairwise cosine distances are
+        used for clustering instead of Bhattacharyya distances.
+    embeddings_full:
+        Full embedding matrix, globally indexed.  Used for two purposes:
+        (1) intra-cluster cohesion (intra_sim) stored on every flat node,
+        and (2) representative selection when LDA signal is weak.
+    min_dominant_weight:
+        OOV threshold forwarded to most_representative.
 
     Returns
     -------
     flat_nodes : list[dict]
     root_id    : str
     Z : np.ndarray
+        Linkage matrix from scipy.cluster.hierarchy.linkage.
     """
-    D = bhattacharyya_matrix(thetas)
+    if embeddings is not None:
+        D = cosine_distance_matrix(embeddings)
+    else:
+        D = bhattacharyya_matrix(thetas)
+
     Z = linkage(squareform(D, checks=False), method=linkage_method)
     root_node, _ = to_tree(Z, rd=True)
-    tree = build_tree(root_node, indices, X_full if X_full is not None else thetas, queries, n_repr=n_repr)
+
+    tree = build_tree(
+        root_node,
+        indices,
+        X_full if X_full is not None else thetas,
+        queries,
+        n_repr=n_repr,
+        min_dominant_weight=min_dominant_weight,
+        embeddings_full=embeddings_full,
+    )
     flat_nodes, root_id = flatten_tree(tree)
+
+    # Annotate each node with its intra-cluster embedding similarity.
+    if embeddings_full is not None:
+        nodes_by_id_flat = {str(n["id"]): n for n in flat_nodes}
+
+        def _leaf_ids(nid_str):
+            acc = {}
+            stk = [(nid_str, False)]
+            while stk:
+                cur, done = stk.pop()
+                nd = nodes_by_id_flat[cur]
+                cids = [str(c) for c in nd.get("children_ids", [])]
+                if done:
+                    if not cids:
+                        acc[cur] = [nd["id"]]
+                    else:
+                        merged = []
+                        for c in cids:
+                            merged.extend(acc[c])
+                        acc[cur] = merged
+                else:
+                    stk.append((cur, True))
+                    for c in cids:
+                        stk.append((c, False))
+            return acc
+
+        leaf_idx_map = _leaf_ids(str(root_id))
+        for n in flat_nodes:
+            nid = str(n["id"])
+            leaf_ids = leaf_idx_map.get(nid, [])
+            n["intra_sim"] = round(
+                intra_cluster_similarity(leaf_ids, embeddings_full), 4
+            )
+    else:
+        for n in flat_nodes:
+            n["intra_sim"] = None
+
     return flat_nodes, root_id, Z

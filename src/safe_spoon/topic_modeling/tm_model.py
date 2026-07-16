@@ -102,8 +102,10 @@ class TMmodel(object):
         self.llm_server = llm_server
         self.llm_provider = llm_provider
         self.llm_api_key = llm_api_key
-        self._labeller_prompt = labeller_prompt or _default_prompt_path("labelling_dft.txt")
-        self._summarizer_prompt = summarizer_prompt or _default_prompt_path("summarization_dft.txt")
+        self._labeller_prompt = labeller_prompt or _default_prompt_path(
+            "labelling_dft.txt")
+        self._summarizer_prompt = summarizer_prompt or _default_prompt_path(
+            "summarization_dft.txt")
         self._training_warnings: List[str] = []
 
         self._logger.info(
@@ -114,7 +116,8 @@ class TMmodel(object):
         """Initialise the topic model from raw matrices and persist all derived quantities."""
 
         if not self._TMfolder.is_dir():
-            self._logger.error('-- -- Topic model object (TMmodel) folder not ready')
+            self._logger.error(
+                '-- -- Topic model object (TMmodel) folder not ready')
             return
 
         self._alphas_orig = alphas
@@ -149,7 +152,8 @@ class TMmodel(object):
         self._logger.info("-- -- entropy")
         self._ndocs_active = np.array((self._thetas != 0).sum(0).tolist()[0])
         self._logger.info("-- -- active")
-        self._tpc_descriptions = [el[1] for el in self.get_tpc_word_descriptions()]
+        self._tpc_descriptions = [el[1]
+                                  for el in self.get_tpc_word_descriptions()]
         self._logger.info("-- -- descriptions")
         self.calculate_topic_coherence()
 
@@ -160,18 +164,23 @@ class TMmodel(object):
                 self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
             except Exception as e:
                 self._logger.warning(f"Error in labeller: {e}")
-                self._tpc_labels = ["Topic " + str(i) for i in range(self._ntopics)]
+                self._tpc_labels = ["Topic " +
+                                    str(i) for i in range(self._ntopics)]
         elif not self._do_labeller and (self._tpc_labels is None):
-            self._tpc_labels = ["Topic " + str(i) for i in range(self._ntopics)]
+            self._tpc_labels = ["Topic " + str(i)
+                                for i in range(self._ntopics)]
 
         if self._do_summarizer:
             try:
-                self._tpc_summaries = [el[1] for el in self.get_tpc_summaries()]
+                self._tpc_summaries = [el[1]
+                                       for el in self.get_tpc_summaries()]
             except Exception as e:
                 self._logger.warning(f"Error in summarizer: {e}")
-                self._tpc_summaries = ["Placeholder for summary from Topic " + str(i) for i in range(self._ntopics)]
+                self._tpc_summaries = [
+                    "Placeholder for summary from Topic " + str(i) for i in range(self._ntopics)]
         elif not self._do_summarizer and (self._tpc_summaries is None):
-            self._tpc_summaries = ["Placeholder for summary from Topic " + str(i) for i in range(self._ntopics)]
+            self._tpc_summaries = [
+                "Placeholder for summary from Topic " + str(i) for i in range(self._ntopics)]
 
         self._tpc_add_info = add_info
 
@@ -197,9 +206,12 @@ class TMmodel(object):
         with self._TMfolder.joinpath('edits.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._edits))
         np.save(self._TMfolder.joinpath('betas_ds.npy'), self._betas_ds)
-        np.save(self._TMfolder.joinpath('topic_entropy.npy'), self._topic_entropy)
-        np.save(self._TMfolder.joinpath('topic_coherence.npy'), self._topic_coherence)
-        np.save(self._TMfolder.joinpath('ndocs_active.npy'), self._ndocs_active)
+        np.save(self._TMfolder.joinpath(
+            'topic_entropy.npy'), self._topic_entropy)
+        np.save(self._TMfolder.joinpath(
+            'topic_coherence.npy'), self._topic_coherence)
+        np.save(self._TMfolder.joinpath(
+            'ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_descriptions))
 
@@ -214,7 +226,7 @@ class TMmodel(object):
             try:
                 import pyLDAvis
             except ImportError:
-                msg = "pyLDAvis not installed; visualization skipped. Install with: pip install safe-spoon[viz]"
+                msg = "pyLDAvis not installed; visualization skipped."
                 self._logger.warning(msg)
                 self._training_warnings.append(msg)
                 return
@@ -233,7 +245,8 @@ class TMmodel(object):
                 ndocs = nValidDocs
             perm = np.sort(np.random.permutation(nValidDocs)[:ndocs])
             doc_len = ndocs * [1]
-            vocabfreq = np.round(ndocs * (self._alphas.dot(self._betas))).astype(int)
+            vocabfreq = np.round(
+                ndocs * (self._alphas.dot(self._betas))).astype(int)
             vis_data = pyLDAvis.prepare(
                 self._betas,
                 self._thetas[validDocs, ][perm, ].toarray(),
@@ -261,7 +274,8 @@ class TMmodel(object):
         return
 
     def _save_cohr(self):
-        np.save(self._TMfolder.joinpath('topic_coherence.npy'), self._topic_coherence)
+        np.save(self._TMfolder.joinpath(
+            'topic_coherence.npy'), self._topic_coherence)
 
     def _sort_topics(self):
         self._load_alphas()
@@ -291,12 +305,14 @@ class TMmodel(object):
 
     def _load_thetas(self):
         if self._thetas is None:
-            self._thetas = sparse.load_npz(self._TMfolder.joinpath('thetas.npz'))
+            self._thetas = sparse.load_npz(
+                self._TMfolder.joinpath('thetas.npz'))
             self._ntopics = self._thetas.shape[1]
 
     def _load_ndocs_active(self):
         if self._ndocs_active is None:
-            self._ndocs_active = np.load(self._TMfolder.joinpath('ndocs_active.npy'))
+            self._ndocs_active = np.load(
+                self._TMfolder.joinpath('ndocs_active.npy'))
             self._ntopics = self._ndocs_active.shape[0]
 
     def _load_edits(self):
@@ -310,7 +326,8 @@ class TMmodel(object):
         self._betas_ds = np.copy(self._betas)
         if np.min(self._betas_ds) < 1e-12:
             self._betas_ds += 1e-12
-        deno = np.reshape((sum(np.log(self._betas_ds)) / self._ntopics), (self._size_vocab, 1))
+        deno = np.reshape((sum(np.log(self._betas_ds)) /
+                          self._ntopics), (self._size_vocab, 1))
         deno = np.ones((self._ntopics, 1)).dot(deno.T)
         self._betas_ds = self._betas_ds * (np.log(self._betas_ds) - deno)
 
@@ -340,16 +357,19 @@ class TMmodel(object):
 
         if np.min(self._betas) < 1e-12:
             self._betas += 1e-12
-        self._topic_entropy = -np.sum(self._betas * np.log(self._betas), axis=1)
+        self._topic_entropy = - \
+            np.sum(self._betas * np.log(self._betas), axis=1)
         self._topic_entropy = self._topic_entropy / np.log(self._size_vocab)
 
     def _load_topic_entropy(self):
         if self._topic_entropy is None:
-            self._topic_entropy = np.load(self._TMfolder.joinpath('topic_entropy.npy'))
+            self._topic_entropy = np.load(
+                self._TMfolder.joinpath('topic_entropy.npy'))
 
     def calculate_rbo(self, weight: float = 1.0, n_words: int = 15) -> float:
         if self._tpc_descriptions is None:
-            self._tpc_descriptions = [el[1] for el in self.get_tpc_word_descriptions(n_words)]
+            self._tpc_descriptions = [el[1]
+                                      for el in self.get_tpc_word_descriptions(n_words)]
 
         collect = []
         for list1, list2 in itertools.combinations(self._tpc_descriptions, 2):
@@ -363,12 +383,14 @@ class TMmodel(object):
             with self._TMfolder.joinpath('rbo.txt').open('w', encoding='utf8') as fout:
                 fout.write(str(irbo))
         except Exception:
-            self._logger.warning("Rank-biased overlap could not be saved to file")
+            self._logger.warning(
+                "Rank-biased overlap could not be saved to file")
         return irbo
 
     def calculate_topic_diversity(self, n_words: int = 15) -> float:
         if self._tpc_descriptions is None:
-            self._tpc_descriptions = [el[1] for el in self.get_tpc_word_descriptions(n_words)]
+            self._tpc_descriptions = [el[1]
+                                      for el in self.get_tpc_word_descriptions(n_words)]
 
         unique_words = set()
         for topic in self._tpc_descriptions:
@@ -391,14 +413,17 @@ class TMmodel(object):
         aggregated: bool = False
     ) -> list:
         if self._tpc_descriptions is None:
-            self._tpc_descriptions = [el[1] for el in self.get_tpc_word_descriptions()]
+            self._tpc_descriptions = [el[1]
+                                      for el in self.get_tpc_word_descriptions()]
 
         tpc_descriptions_ = [tpc.split(', ') for tpc in self._tpc_descriptions]
 
         if reference_text is None:
-            corpus = [el.split() for el in self._df_corpus_train["text"].values.tolist()]
+            corpus = [el.split()
+                      for el in self._df_corpus_train["text"].values.tolist()]
         elif reference_text and isinstance(reference_text[0], str):
-            corpus = [el.split() for el in reference_text if isinstance(el, str)]
+            corpus = [el.split()
+                      for el in reference_text if isinstance(el, str)]
         else:
             corpus = reference_text
 
@@ -408,7 +433,8 @@ class TMmodel(object):
                 dictionary = Dictionary.load_from_text(
                     self._TMfolder.parent.joinpath('dictionary.gensim').as_posix())
             except Exception:
-                self._logger.warning("Gensim dictionary could not be loaded from file.")
+                self._logger.warning(
+                    "Gensim dictionary could not be loaded from file.")
         if dictionary is None:
             dictionary = Dictionary(corpus)
 
@@ -442,7 +468,8 @@ class TMmodel(object):
                     aux = cm.get_coherence_per_topic()
                     cohrs_aux.extend(aux)
                 else:
-                    self._logger.error('-- -- -- Coherence metric not available.')
+                    self._logger.error(
+                        '-- -- -- Coherence metric not available.')
                     return None
             self._topic_coherence = cohrs_aux
 
@@ -452,7 +479,8 @@ class TMmodel(object):
         if self._topic_coherence is None:
             coherence_path = self._TMfolder.joinpath('topic_coherence.npy')
             if not coherence_path.is_file():
-                self._logger.warning("topic_coherence.npy not found; using zeros.")
+                self._logger.warning(
+                    "topic_coherence.npy not found; using zeros.")
                 n = self._ntopics if self._ntopics else 0
                 self._topic_coherence = np.zeros(n)
                 return
@@ -497,16 +525,19 @@ class TMmodel(object):
 
         # specificity[k, w] = how exclusively word w belongs to topic k
         eps = 1e-10
-        specificity = self._betas / (self._betas.sum(axis=0, keepdims=True) + eps)
+        specificity = self._betas / \
+            (self._betas.sum(axis=0, keepdims=True) + eps)
 
         S3 = np.zeros((n_docs, n_topics), dtype=np.float32)
         for doc_idx, tokens in enumerate(self._lemmas):
             # unique words: each word contributes once regardless of repetitions
-            wd_ids = [self._vocab_w2id[w] for w in set(tokens) if w in self._vocab_w2id]
+            wd_ids = [self._vocab_w2id[w]
+                      for w in set(tokens) if w in self._vocab_w2id]
             if not wd_ids:
                 continue
             # mean specificity × log-scaled diversity bonus
-            S3[doc_idx] = specificity[:, wd_ids].mean(axis=1) * np.log1p(len(wd_ids))
+            S3[doc_idx] = specificity[:, wd_ids].mean(
+                axis=1) * np.log1p(len(wd_ids))
         self._s3 = sparse.csr_matrix(S3)
 
     def _largest_indices(self, ary, n):
@@ -535,9 +566,11 @@ class TMmodel(object):
         tpc_descs = []
         for i in tpc:
             if tfidf:
-                words = [self._vocab[id2] for id2 in np.argsort(self._betas_ds[i])[::-1][0:n_words]]
+                words = [self._vocab[id2] for id2 in np.argsort(self._betas_ds[i])[
+                    ::-1][0:n_words]]
             else:
-                words = [self._vocab[id2] for id2 in np.argsort(self._betas[i])[::-1][0:n_words]]
+                words = [self._vocab[id2]
+                         for id2 in np.argsort(self._betas[i])[::-1][0:n_words]]
             tpc_descs.append((i, ', '.join(words)))
 
         return tpc_descs
@@ -568,9 +601,11 @@ class TMmodel(object):
 
         # Build a flat query list in row order so top_docs_per_topic can filter by length
         if self._doc_ids is not None and self._corpus_lookup is not None:
-            queries = [str(self._corpus_lookup.get(did, "")) for did in self._doc_ids]
+            queries = [str(self._corpus_lookup.get(did, ""))
+                       for did in self._doc_ids]
         elif self._df_corpus_train is not None and "text" in self._df_corpus_train.columns:
-            queries = self._df_corpus_train["text"].fillna("").astype(str).tolist()
+            queries = self._df_corpus_train["text"].fillna(
+                "").astype(str).tolist()
         else:
             queries = ["x"] * aux.shape[0]
 
@@ -589,7 +624,8 @@ class TMmodel(object):
                 reps = [
                     (
                         self._doc_ids[doc],
-                        (self._corpus_lookup.get(self._doc_ids[doc], "") if self._corpus_lookup else "") if get_text else "",
+                        (self._corpus_lookup.get(
+                            self._doc_ids[doc], "") if self._corpus_lookup else "") if get_text else "",
                         aux[doc, k],
                     )
                     for doc in chosen
@@ -612,11 +648,13 @@ class TMmodel(object):
     def generate_topic_outputs(self, task: str = "label", topn: int = 10, max_tokens: int = None, batch_size: int = None, max_retries: int = 5, prompt_path: Optional[str] = None):
         """Generate LLM-based labels or summaries for all topics using parallel batch processing."""
         if task not in {"label", "summary"}:
-            raise ValueError(f"Invalid task: {task}. Use 'label' or 'summary'.")
+            raise ValueError(
+                f"Invalid task: {task}. Use 'label' or 'summary'.")
 
         self.load_tpc_descriptions()
         self._load_thetas()
-        self.get_most_representative_per_tpc(self._thetas, topn=topn, get_text=True)
+        self.get_most_representative_per_tpc(
+            self._thetas, topn=topn, get_text=True)
 
         if prompt_path is None:
             prompt_path = self._labeller_prompt if task == "label" else self._summarizer_prompt
@@ -631,18 +669,21 @@ class TMmodel(object):
             llm_server=self.llm_server,
             llm_provider=self.llm_provider,
             api_key=self.llm_api_key,
-            #max_tokens=max_tokens,
+            # max_tokens=max_tokens,
         )
-
+        
         prompts = []
         for tpc_id, most_repr in enumerate(self._most_representative_docs):
-            docs = "\n- " + "\n- ".join([doc_tuple[1] for doc_tuple in most_repr])
+            docs = "\n- " + "\n- ".join([doc_tuple[1]
+                                        for doc_tuple in most_repr])
             prompt_filled = template_str.format(
                 keywords=self._tpc_descriptions[tpc_id],
                 docs=docs,
             )
             prompts.append((tpc_id, prompt_filled))
-
+            
+        #import pdb; pdb.set_trace()
+        
         def _run_prompt(args):
             tpc_id, prompt_filled = args
             output_text = None
@@ -654,6 +695,9 @@ class TMmodel(object):
                     system_prompt_template_path=None,
                     temperature=temperature,
                 )
+                
+                #raw, _ = prompter.prompt(question=prompts[3][1],system_prompt_template_path=None,temperature=0.1,)
+                
                 if raw and raw.strip():
                     output_text = raw.replace("\n", " ")
                     break
@@ -661,7 +705,8 @@ class TMmodel(object):
                     f"Topic {tpc_id}: empty output on attempt {attempt + 1}/{max_retries + 1}"
                 )
             if output_text is None:
-                self._logger.error(f"Topic {tpc_id}: all {max_retries + 1} attempts returned empty output.")
+                self._logger.error(
+                    f"Topic {tpc_id}: all {max_retries + 1} attempts returned empty output.")
                 output_text = ""
             return tpc_id, output_text
 
@@ -691,13 +736,15 @@ class TMmodel(object):
         if self._coords is None:
             coords_path = self._TMfolder.joinpath('tpc_coords.txt')
             if not coords_path.is_file():
-                self._logger.warning("tpc_coords.txt not found; using placeholder coordinates.")
+                self._logger.warning(
+                    "tpc_coords.txt not found; using placeholder coordinates.")
                 n = self._ntopics if self._ntopics else 0
                 if n <= 1:
                     self._coords = [(0.0, 0.0)] * n
                 else:
                     rng = np.random.default_rng(seed=42)
-                    self._coords = [tuple(xy) for xy in rng.uniform(-1.0, 1.0, size=(n, 2))]
+                    self._coords = [
+                        tuple(xy) for xy in rng.uniform(-1.0, 1.0, size=(n, 2))]
                 return
             with coords_path.open('r', encoding='utf8') as fin:
                 self._coords = [
@@ -784,14 +831,17 @@ class TMmodel(object):
             self._topic_entropy = self._topic_entropy[tpc_keep]
             self._topic_coherence = self._topic_coherence[tpc_keep]
             self._tpc_labels = [self._tpc_labels[i] for i in tpc_keep]
-            self._tpc_descriptions = [self._tpc_descriptions[i] for i in tpc_keep]
+            self._tpc_descriptions = [
+                self._tpc_descriptions[i] for i in tpc_keep]
             self._edits.append('d ' + ' '.join([str(k) for k in tpcs]))
 
             self._save_all()
-            self._logger.info('-- -- Topics deletion successful. All variables saved to file')
+            self._logger.info(
+                '-- -- Topics deletion successful. All variables saved to file')
             return 1
         except Exception:
-            self._logger.info('-- -- Topics deletion generated an error. Operation failed')
+            self._logger.info(
+                '-- -- Topics deletion generated an error. Operation failed')
             return 0
 
     def getSimilarTopics(self, npairs, thr=1e-3):
@@ -802,21 +852,27 @@ class TMmodel(object):
         thetas2 = self._thetas.multiply(self._thetas)
         med2 = np.asarray(np.mean(thetas2, axis=0)).ravel()
         stds = np.sqrt(med2 - med ** 2)
-        num = self._thetas.T.dot(self._thetas).toarray() / self._thetas.shape[0]
+        num = self._thetas.T.dot(
+            self._thetas).toarray() / self._thetas.shape[0]
         num = num - med[..., np.newaxis].dot(med[np.newaxis, ...])
         deno = stds[..., np.newaxis].dot(stds[np.newaxis, ...])
         corrcoef = num / deno
-        selected_coocur = self._largest_indices(corrcoef, self._ntopics + 2 * npairs)
-        selected_coocur = [(el[0], el[1], el[2].astype(float)) for el in selected_coocur]
+        selected_coocur = self._largest_indices(
+            corrcoef, self._ntopics + 2 * npairs)
+        selected_coocur = [(el[0], el[1], el[2].astype(float))
+                           for el in selected_coocur]
 
         betas_aux = self._betas[:, np.where(self._betas.max(axis=0) > thr)[0]]
         js_mat = np.zeros((self._ntopics, self._ntopics))
         for k in range(self._ntopics):
             for kk in range(self._ntopics):
-                js_mat[k, kk] = jensenshannon(betas_aux[k, :], betas_aux[kk, :])
+                js_mat[k, kk] = jensenshannon(
+                    betas_aux[k, :], betas_aux[kk, :])
         JSsim = 1 - js_mat
-        selected_worddesc = self._largest_indices(JSsim, self._ntopics + 2 * npairs)
-        selected_worddesc = [(el[0], el[1], el[2].astype(float)) for el in selected_worddesc]
+        selected_worddesc = self._largest_indices(
+            JSsim, self._ntopics + 2 * npairs)
+        selected_worddesc = [(el[0], el[1], el[2].astype(float))
+                             for el in selected_worddesc]
 
         return {'Coocurring': selected_coocur, 'Worddesc': selected_worddesc}
 
@@ -829,7 +885,8 @@ class TMmodel(object):
         med2 = np.asarray(np.mean(thetas2, axis=0)).ravel()
         stds = np.sqrt(med2 - med ** 2)
 
-        num = self._thetas.T.dot(self._thetas).toarray() / self._thetas.shape[0]
+        num = self._thetas.T.dot(
+            self._thetas).toarray() / self._thetas.shape[0]
         num -= med[..., np.newaxis].dot(med[np.newaxis, ...])
         deno = stds[..., np.newaxis].dot(stds[np.newaxis, ...])
         corrcoef = num / deno
@@ -847,20 +904,23 @@ class TMmodel(object):
         worddesc_sim = {}
 
         if betas_aux.shape[1] == 0:
-            self._logger.warning("No vocab terms passed the threshold for JS computation.")
+            self._logger.warning(
+                "No vocab terms passed the threshold for JS computation.")
             worddesc_sim = {i: [] for i in range(self._ntopics)}
         else:
             js_mat = np.zeros((self._ntopics, self._ntopics))
             for k in range(self._ntopics):
                 for kk in range(self._ntopics):
-                    js_mat[k, kk] = jensenshannon(betas_aux[k, :], betas_aux[kk, :])
+                    js_mat[k, kk] = jensenshannon(
+                        betas_aux[k, :], betas_aux[kk, :])
             JSsim = 1 - js_mat
 
             for i in range(self._ntopics):
                 sim_row = JSsim[i].copy()
                 sim_row[i] = -np.inf
                 top_indices = np.argsort(sim_row)[-nsimilar:][::-1]
-                worddesc_sim[i] = [(int(j), float(sim_row[j])) for j in top_indices]
+                worddesc_sim[i] = [(int(j), float(sim_row[j]))
+                                   for j in top_indices]
 
         return {"Coocurring": coocur_sim, "Worddesc": worddesc_sim}
 
@@ -878,7 +938,8 @@ class TMmodel(object):
             tpcs = sorted(tpcs)
 
             weights = self._alphas[tpcs]
-            bet = weights[np.newaxis, ...].dot(self._betas[tpcs, :]) / (sum(weights))
+            bet = weights[np.newaxis, ...].dot(
+                self._betas[tpcs, :]) / (sum(weights))
             self._betas[tpcs[0], :] = bet
             self._betas = np.delete(self._betas, tpcs[1:], 0)
 
@@ -892,21 +953,25 @@ class TMmodel(object):
             self._ntopics = self._thetas.shape[1]
             self._calculate_beta_ds()
             self._calculate_topic_entropy()
-            self._ndocs_active = np.array((self._thetas != 0).sum(0).tolist()[0])
+            self._ndocs_active = np.array(
+                (self._thetas != 0).sum(0).tolist()[0])
 
             for tpc in tpcs[1:][::-1]:
                 del self._tpc_descriptions[tpc]
-            self._tpc_descriptions[tpcs[0]] = self.get_tpc_word_descriptions(tpc=[tpcs[0]])[0][1]
+            self._tpc_descriptions[tpcs[0]] = self.get_tpc_word_descriptions(tpc=[tpcs[0]])[
+                0][1]
             for tpc in tpcs[1:][::-1]:
                 del self._tpc_labels[tpc]
 
             self.calculate_topic_coherence()
             self._edits.append('f ' + ' '.join([str(el) for el in tpcs]))
             self._save_all()
-            self._logger.info('-- -- Topics merging successful. All variables saved to file')
+            self._logger.info(
+                '-- -- Topics merging successful. All variables saved to file')
             return 1
         except Exception:
-            self._logger.info('-- -- Topics merging generated an error. Operation failed')
+            self._logger.info(
+                '-- -- Topics merging generated an error. Operation failed')
             return 0
 
     def sortTopics(self):
@@ -938,16 +1003,19 @@ class TMmodel(object):
             self._edits.append('s ' + ' '.join([str(el) for el in id]))
 
             self._save_all()
-            self._logger.info('-- -- Topics reordering successful. All variables saved to file')
+            self._logger.info(
+                '-- -- Topics reordering successful. All variables saved to file')
             return 1
         except Exception:
-            self._logger.info('-- -- Topics reordering generated an error. Operation failed')
+            self._logger.info(
+                '-- -- Topics reordering generated an error. Operation failed')
             return 0
 
     def resetTM(self):
         self._alphas_orig = np.load(self._TMfolder.joinpath('alphas_orig.npy'))
         self._betas_orig = np.load(self._TMfolder.joinpath('betas_orig.npy'))
-        self._thetas_orig = sparse.load_npz(self._TMfolder.joinpath('thetas_orig.npz'))
+        self._thetas_orig = sparse.load_npz(
+            self._TMfolder.joinpath('thetas_orig.npz'))
         self._load_vocab()
 
         try:
@@ -962,7 +1030,8 @@ class TMmodel(object):
         try:
             self.calculate_topic_coherence()
             self._save_cohr()
-            self._logger.info('-- -- Topics coherence recalculation successful.')
+            self._logger.info(
+                '-- -- Topics coherence recalculation successful.')
             return 1
         except Exception:
             self._logger.info('-- -- Topics coherence recalculation failed.')
@@ -1089,13 +1158,8 @@ def top_docs_per_topic(
 
         if len(candidate_id) == 0:
             candidate_id = np.arange(n_docs)
-
-        # Exclude vocabulary-collapsed documents: queries where only a single
-        # topic survived sparsification get theta_k == 1.0 by arithmetic
-        # accident, not genuine topical signal.  They trivially pass the elbow
-        # threshold and dominate the S3+theta ranking, producing nonsensical
-        # representatives.  Require at least 2 non-zero topics; fall back to
-        # the full candidate set only if this filter would leave nothing.
+            
+        # exclude documents that collapse to a single topic (i.e., only one non-zero topic)
         nz_topics = (thetas[candidate_id] > 1e-6).sum(axis=1)
         non_collapsed = candidate_id[nz_topics >= 2]
         if len(non_collapsed) > 0:
@@ -1104,7 +1168,8 @@ def top_docs_per_topic(
         # Score: combined S3+theta (normalized) when S3 is available
         if s3 is not None:
             s3_col = s3[:, k]
-            s3_norm = (s3_col - s3_col.min()) / (s3_col.max() - s3_col.min() + eps)
+            s3_norm = (s3_col - s3_col.min()) / \
+                (s3_col.max() - s3_col.min() + eps)
             theta_norm = (col - col.min()) / (col.max() - col.min() + eps)
             combined = 0.5 * s3_norm + 0.5 * theta_norm
             scores = combined[candidate_id]

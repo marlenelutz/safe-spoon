@@ -2,20 +2,34 @@ import re
 
 import pandas as pd
 
-from safe_spoon.utils.data_utils import remove_empties, remove_exact_duplicates, remove_near_duplicates
+from safe_spoon.utils.common import load_yaml_config_file
+from safe_spoon.utils.data_utils import (
+    DEMO_PATTERNS,
+    DEMO_REGEX,
+    NAME_PATTERN,
+    near_duplicate_pairs,
+    remove_contained_in,
+    remove_empties,
+    remove_exact_duplicates,
+    remove_name_pattern,
+    remove_near_duplicates,
+    #scan_near_duplicate_thresholds,
+)
 
+_cfg = load_yaml_config_file()
 
-INPUT_FILE = "data/high_risk_automatically_labelled_filtered.csv"
-OUTPUT_FILE = "data/high_risk_automatically_labelled_filtered_cleaned.csv"
+INPUT_FILE = "data/dataset/automatically-labeled-data/high_risk_automatically_labelled_filtered.csv"
+OUTPUT_FILE = _cfg["input_file"]
 OUTPUT_DUPLICATES = "data/near_duplicate_pairs.csv"
-CONTENT_COL = "content"
-LABEL_COL = "high_risk_label"
-CATEGORIES = ['Economic and Financial', 'Health', 'Moral Values and Religion']
+OUTPUT_THRESHOLD_SCAN = "data/near_duplicate_threshold_scan.csv"
+CONTENT_COL = _cfg["content_col"]
+LABEL_COL = _cfg["label_col"]
+CATEGORIES = _cfg["categories"]
 
-SIMILARITY_THRESHOLD = 0.95
-NAME_PATTERN = re.compile(r"\bNAME_\w+\b", re.IGNORECASE)
+SIMILARITY_THRESHOLD = _cfg["similarity_threshold"]
+THRESHOLD_SCAN_VALUES = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.98]
 
-N_PAIR_EXAMPLES = 3
+N_PAIR_EXAMPLES = 30
 
 def _print_pairs(pairs: list, n: int = N_PAIR_EXAMPLES) -> None:
     """Print the first n pairs of kept and removed rows, along with their similarity scores if available."""
@@ -64,13 +78,39 @@ print(f"  Examples of exact duplicate pairs:")
 _print_pairs(exact_pairs)
 
 # Remove NAME_X pattern
-#df3 = remove_name_pattern(df2.reset_index(drop=True), CONTENT_COL, NAME_PATTERN)
-#print_filter_stats("Remove NAME_X pattern", df2.reset_index(drop=True), df3)
+df3 = remove_name_pattern(df2.reset_index(drop=True), CONTENT_COL, NAME_PATTERN)
+print_filter_stats("Remove NAME_X pattern", df2.reset_index(drop=True), df3)
+
+# Remove rows with explicit demographic self-disclosure (age, gender, religion, ethnicity, etc.)
+df2_before_demo = df3.reset_index(drop=True)
+df3 = remove_name_pattern(df2_before_demo, CONTENT_COL, DEMO_REGEX)
+print_filter_stats("Remove demographic self-disclosure", df2_before_demo, df3)
+removed_demo = df2_before_demo[~df2_before_demo.index.isin(df3.index)]
+print(f"  Examples of removed demographic rows:")
+for idx, row in removed_demo.head(N_PAIR_EXAMPLES).iterrows():
+    text = row[CONTENT_COL]
+    categories = ", ".join(name for name, pat in DEMO_PATTERNS.items() if re.search(pat, text, re.IGNORECASE))
+    print(f"    REMOVED [id={idx}] ({categories}): {text[:120].replace(chr(10), ' ')!r}")
+
+# remove contained in rows
+df3_before_contained = df3.reset_index(drop=True)
+df3, contained_pairs = remove_contained_in(df3_before_contained, CONTENT_COL)
+print_filter_stats("Remove contained-in rows", df3_before_contained, df3)
+print(f"  Examples of contained-in pairs:")
+_print_pairs(contained_pairs)
+
+# Scan candidate thresholds to help pick SIMILARITY_THRESHOLD
+df3r = df3.reset_index(drop=True)
+all_pairs_df = near_duplicate_pairs(df3r, CONTENT_COL, min_similarity=min(THRESHOLD_SCAN_VALUES))
+#scan_df = scan_near_duplicate_thresholds(all_pairs_df, THRESHOLD_SCAN_VALUES)
+#print(f"\n[Threshold scan] Near-duplicate pair counts by candidate threshold:")
+#print(scan_df.to_string(index=False))
+#all_pairs_df.to_csv(OUTPUT_THRESHOLD_SCAN, index=False)
+#print(f"  Saved all pairwise similarities to {OUTPUT_THRESHOLD_SCAN} for manual inspection")
 
 # Remove near-duplicates
-df2r = df2.reset_index(drop=True)
-df4, near_pairs = remove_near_duplicates(df2r, CONTENT_COL, SIMILARITY_THRESHOLD)
-print_filter_stats(f"Remove near-duplicates (>= {SIMILARITY_THRESHOLD * 100:.0f}%)", df2r, df4)
+df4, near_pairs = remove_near_duplicates(df3r, CONTENT_COL, SIMILARITY_THRESHOLD)
+print_filter_stats(f"Remove near-duplicates (>= {SIMILARITY_THRESHOLD * 100:.0f}%)", df3r, df4)
 print(f"  Examples of near-duplicate pairs:")
 _print_pairs(near_pairs)
 

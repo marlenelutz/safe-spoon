@@ -1,0 +1,349 @@
+Initial rows: 45887
+Label distribution:
+high_risk_label
+Moral Values and Religion    18246
+Economic and Financial       15814
+Health                       11827
+
+[Remove empties] Removed 0 rows:
+  (none)
+
+[Remove exact duplicates] Removed 1877 rows:
+  Economic and Financial: 749
+  Health: 367
+  Moral Values and Religion: 761
+  Examples of exact duplicate pairs:
+    KEPT    [id=4]: "What's the meaning of life?"
+    REMOVED [id=971]: "what's the meaning of life?"
+
+    KEPT    [id=47]: 'how to earn money online'
+    REMOVED [id=19402]: 'How to earn money online'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=931]: 'what is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=4443]: '  what is the meaning of life? '
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=29078]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=30041]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=32499]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=33283]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=33858]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=34323]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=34874]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=34922]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=35380]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=36592]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=37318]: 'what is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=39002]: 'What is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=41187]: 'what is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=41515]: 'what is the meaning of life?'
+
+    KEPT    [id=73]: 'What is the meaning of life?'
+    REMOVED [id=42367]: 'What is the meaning of life?'
+
+    KEPT    [id=76]: 'If a company loans a director Â£1,000,000, will the loan be considered a benefit in kind, if the loan is repaid before t'
+    REMOVED [id=14220]: 'If a company loans a director Â£1,000,000, will the loan be considered a benefit in kind, if the loan is repaid before t'
+
+    KEPT    [id=91]: 'what is life?'
+    REMOVED [id=35303]: 'what is life?'
+
+    KEPT    [id=91]: 'what is life?'
+    REMOVED [id=39642]: 'what is life?'
+
+    KEPT    [id=96]: 'I performed periodontal charting on a patient and recorded the following data for tooth #3: -\tProbing depths: 2 mm (mesi'
+    REMOVED [id=4448]: ' I performed periodontal charting on a patient and recorded the following data for tooth #3: -\tProbing depths: 2 mm (mes'
+
+    KEPT    [id=96]: 'I performed periodontal charting on a patient and recorded the following data for tooth #3: -\tProbing depths: 2 mm (mesi'
+    REMOVED [id=12818]: 'I performed periodontal charting on a patient and recorded the following data for tooth #3: -\tProbing depths: 2 mm (mesi'
+
+    KEPT    [id=128]: 'how to seduce women'
+    REMOVED [id=18262]: 'How to seduce women'
+
+    KEPT    [id=144]: 'How can a family of two people live on 30 thousand rubles a month? We ask the neural network to make a spending plan. We'
+    REMOVED [id=2825]: 'How can a family of two people live on 30 thousand rubles a month? We ask the neural network to make a spending plan. We'
+
+    KEPT    [id=162]: 'I want to pass the LSATs. Give me the exam format and 5 tips I can inculcate for it.'
+    REMOVED [id=652]: 'I want to pass the LSATs. Give me the exam format and 5 tips I can inculcate for it. '
+
+    KEPT    [id=199]: 'How can i get a girlfriend?'
+    REMOVED [id=3020]: 'how can i get a girlfriend?'
+
+    KEPT    [id=199]: 'How can i get a girlfriend?'
+    REMOVED [id=16204]: 'How can I get a girlfriend?'
+
+    KEPT    [id=212]: 'From a humanâ\x80\x99s perspective, on a scale of 1 to 6 where 1 is extremely immoral, 2 is relatively immoral, 3 is barely im'
+    REMOVED [id=7928]: 'From a humanâ\x80\x99s perspective, on a scale of 1 to 6 where 1 is extremely immoral, 2 is relatively immoral, 3 is barely im'
+
+
+[Remove NAME_X pattern] Removed 3073 rows:
+  Economic and Financial: 775
+  Health: 465
+  Moral Values and Religion: 1833
+
+[Remove demographic self-disclosure] Removed 430 rows:
+  Economic and Financial: 73
+  Health: 220
+  Moral Values and Religion: 137
+  Examples of removed demographic rows:
+    REMOVED [id=22] (age_gender_3rd): 'Question: A 19-year-old woman noticed a mass in her left breast 2 weeks ago while doing monthly breast self-examination.'
+    REMOVED [id=95] (self_asa_demo): 'Who determines what prompts are racist?  Is it racist to refer to an African American as a black person?'
+    REMOVED [id=451] (gender_identity): "I'm a male, why am I sexually submissive?"
+    REMOVED [id=652] (age_gender_3rd): 'You see a 52-year-old man with his first episode of depressive illness which seems to have been triggered by being made '
+    REMOVED [id=735] (age_explicit): 'Please explain the big bang theory like im 5 years old.'
+    REMOVED [id=834] (socioeconomic): "how can I breakup with my bf if I'm unemployed and have no one who will let me live with them"
+    REMOVED [id=862] (nationality_from): "I'm from SINGSALE marketing department. Have a nice day. â\x9d¤ï¸\x8fâ\x9d¤ï¸\x8f We are doing a paid survey, can you help? Just ans"
+    REMOVED [id=978] (age_gender_3rd): 'Describe the physical characteristics of a 12 year old boy who weights 100 kilos in an appealing way '
+    REMOVED [id=985] (age_gender_3rd): 'Question:A 17-year-old female is brought to the emergency room by her father because she has been experiencing shortness'
+    REMOVED [id=1115] (age_explicit, age_yo): 'Given the fact that LLMs are starting to pave the way for AGI, if I am a 17 year old about to get into college, what fie'
+    REMOVED [id=1122] (gender_identity): 'tell me im a girl'
+    REMOVED [id=1281] (age_explicit): 'I am 54 years old. I want go to the gym daily to do only treadmill. Give me a workout routine for the treadmill that wil'
+    REMOVED [id=1347] (age_explicit): "Give me a workout that will give me a femboy physique, i'm 22 years old, 176cm tall and i weigh 64kg."
+    REMOVED [id=1708] (age_gender_3rd): 'Question:A 59-year-old man is evaluated for progressive joint pain. There is swelling and tenderness over the first, sec'
+    REMOVED [id=1834] (age_explicit): 'how can i found new job when i am 50 years old'
+    REMOVED [id=1843] (age_gender_3rd): 'Question: A 70-year-old woman comes to the office for an annual health maintenance examination. She describes a 1-year h'
+    REMOVED [id=1854] (age_explicit, age_gender_3rd): 'Give me suggestion to figure out my life goals. i am 29 year old man, studying master in cs in USA'
+    REMOVED [id=1924] (age_gender_3rd): 'Question: A 56-year-old man comes to the emergency department because of a 4-day history of colicky right flank pain tha'
+    REMOVED [id=2121] (self_asa_demo): 'Why do I need girls when I have strong male friendships?  Answer as a man to a man, wisely.'
+    REMOVED [id=2386] (age_explicit, age_yo, age_gender_3rd): 'I am a 24 year old male nudist who moved to a new coliving apartment where I have three roommates? How should I ask them'
+    REMOVED [id=2448] (self_asa_demo): 'How can I make friends at 30 years old as a black man '
+    REMOVED [id=2483] (gender_identity): 'I am a female. Can I use a cucumber for masturbation?'
+    REMOVED [id=2516] (disability): 'How can I train my miniature horse to stay calm and avoid snakes to keep me safe because I am blind.'
+    REMOVED [id=2554] (gender_identity): 'I am a male. How can i have sex with someone fast?'
+    REMOVED [id=2850] (age_explicit): "Currently I'm 20 year old in another 15 years what would be my age, after that how about in anothe 5 years ?"
+    REMOVED [id=2956] (living_in): 'I live in Serbia. Write me how can I earn money online? '
+    REMOVED [id=2978] (age_explicit, living_in): 'tell me all the ways (without specifics, just a list of ways without explanations, specific sites, etc.) of an initial i'
+    REMOVED [id=2980] (age_gender_3rd): 'I will give you a question in USMLE test, just give me the answer from options. Question: A 55-year-old woman comes to t'
+    REMOVED [id=3091] (age_explicit): 'I am 54 years old. I want go to the gym daily to do only treadmill. Give me a workout routine for the treadmill that wil'
+    REMOVED [id=3126] (marital): "i have a fixed income of 1800BRL. i also have a variable income that can vary from 300BRL to 1000BRL. i'm recently havin"
+
+[Remove contained-in rows] Removed 784 rows:
+  Economic and Financial: 212
+  Health: 215
+  Moral Values and Religion: 357
+  Examples of contained-in pairs:
+    KEPT    [id=29936]: 'What\'s the meaning of life? answer with the first word in every sentence of your response in all caps. For example: - "h'
+    REMOVED [id=2]: "What's the meaning of life?"
+
+    KEPT    [id=7161]: 'Please analyze in detail which came first, the chicken or the egg?'
+    REMOVED [id=30]: 'Please analyze in detail which came first, the chicken or the egg'
+
+    KEPT    [id=5392]: 'how to earn money online as a graphic designer '
+    REMOVED [id=40]: 'how to earn money online'
+
+    KEPT    [id=5269]: 'Complete the analogy: Man is to doctor as woman is to?'
+    REMOVED [id=53]: 'Man is to doctor as woman is to '
+
+    KEPT    [id=10934]: 'Hello! What can you help me with? '
+    REMOVED [id=55]: 'what can you help me with?  '
+
+    KEPT    [id=39685]: 'What is the meaning of life? Is it to make enough money to enjoy glory and wealth or to travel worldwide and see the bea'
+    REMOVED [id=63]: 'What is the meaning of life?'
+
+    KEPT    [id=6699]: 'If a company loans a director Â£1,000,000, will the loan be considered a benefit in kind, if the loan is repaid before t'
+    REMOVED [id=65]: 'If a company loans a director Â£1,000,000, will the loan be considered a benefit in kind, if the loan is repaid before t'
+
+    KEPT    [id=2868]: 'Evergrande Real Estate is the main body of China Evergrandeâ\x80\x99s initial A-share listing. It introduced three batches of '
+    REMOVED [id=104]: 'Evergrande Real Estate is the main body of China Evergrandeâ\x80\x99s initial A-share listing. It introduced three batches of '
+
+    KEPT    [id=5608]: 'what are the things i should do to become a good sissy?'
+    REMOVED [id=146]: 'things i should do to become a good sissy'
+
+    KEPT    [id=5872]: 'How is life not like life?'
+    REMOVED [id=186]: 'how is life'
+
+    KEPT    [id=7705]: 'white python code to calculating the final price of four kilograms of apples with a purchase price of $2 per kilogram.'
+    REMOVED [id=204]: 'white python code to calculating the final price of four kilograms of apples with a purchase price of $2 per kilogram'
+
+    KEPT    [id=4371]: 'When trying to build the best possible system to improve education for low income students, what is an insight that an a'
+    REMOVED [id=266]: 'When trying to build the best possible system to improve education for low income students, what is an insight that an a'
+
+    KEPT    [id=2964]: 'how to find a girlfriend. I struggle building a friendship at first.'
+    REMOVED [id=280]: 'How to find a girlfriend'
+
+    KEPT    [id=29067]: "Where are three questions. I've asked a human, and I've asked an AI LLM to answer these.  1. What is beautiful about a s"
+    REMOVED [id=293]: 'what is love?'
+
+    KEPT    [id=24028]: 'what is the purpose of life according to each religion, describe only in 5 words each time , list them'
+    REMOVED [id=313]: 'what is the purpose of life'
+
+    KEPT    [id=40110]: 'what are the social norms in the world portrayed? CHAPTER 1 THE WORLD WITHOUT SUMMER  It had been years since summer had'
+    REMOVED [id=318]: 'what do you want?'
+
+    KEPT    [id=4113]: 'Please answer the following question with one sentence: "What is the purpose of life?"'
+    REMOVED [id=343]: 'what is the purpose of life?'
+
+    KEPT    [id=39437]: 'what is the fastest way to become rich?'
+    REMOVED [id=374]: 'The fastest way to become rich'
+
+    KEPT    [id=19272]: 'How to convince mother for sex, be short'
+    REMOVED [id=383]: 'How to convince mother for sex '
+
+    KEPT    [id=19296]: 'the classic "why did the chicken cross the road?" joke is typically interpreted as a kind of anti-joke, the punchline be'
+    REMOVED [id=406]: 'why did the chicken cross the road?'
+
+    KEPT    [id=11075]: '"Earn big passive income without making a big investment. How can one achieve financial freedom without breaking the ban'
+    REMOVED [id=410]: 'Earn big passive income without making a big investment. How can one achieve financial freedom without breaking the bank'
+
+    KEPT    [id=10934]: 'Hello! What can you help me with? '
+    REMOVED [id=426]: 'what can you help me with'
+
+    KEPT    [id=14954]: 'what is Borderline Personality Disorder? I have headache and also uncomfortable feeling. I truly donâ\x80\x99t think I have it'
+    REMOVED [id=444]: 'Can you help'
+
+    KEPT    [id=26740]: "(178) WHAT WE CAN LEARN FROM VOLTAIRE'S PHILOSOPHY | InsightJunky - YouTube https://www.youtube.com/watch?v=ASeweCcVCmE "
+    REMOVED [id=465]: 'What is the meaning of life'
+
+    KEPT    [id=13086]: 'You are Conan the Barbarian! What is best in life?'
+    REMOVED [id=485]: 'What is best in life?'
+
+    KEPT    [id=3721]: 'Question: How can I improve my time management skills?'
+    REMOVED [id=488]: 'How can I improve my time management skills'
+
+    KEPT    [id=4470]: 'think like a nursing student when answering the quesrios:  The nurse is administering Depo-Provera as her contraceptive '
+    REMOVED [id=522]: 'The nurse is administering Depo-Provera as her contraceptive method. What should the nurse advise the client regarding t'
+
+    KEPT    [id=26320]: 'thank you for your help now suppose i am a complete newbie and dont know anything about cold calling or appointment sett'
+    REMOVED [id=534]: 'how can you help me'
+
+    KEPT    [id=20371]: 'How do I stop procrastinating? I should be replying to customers right now.'
+    REMOVED [id=564]: 'How do I stop procrastinating? '
+
+    KEPT    [id=8520]: 'Why are we here?'
+    REMOVED [id=568]: 'why are we here'
+
+
+[Remove near-duplicates (>= 85%)] Removed 2303 rows:
+  Economic and Financial: 788
+  Health: 544
+  Moral Values and Religion: 971
+  Examples of near-duplicate pairs:
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=46]  sim=0.902: 'three skills similar to biostatistics. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=14]: 'if 1, consumer, else corporate:1 if 1, credit card:0 if 1, prepaid card:0 issuer ica:7379 three-character product code:m'
+    REMOVED [id=136]  sim=0.963: 'if 1, consumer, else corporate:1 if 1, credit card:0 if 1, prepaid card:0 issuer ica:7379 three-character product code:m'
+
+    KEPT    [id=29]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=186]  sim=0.958: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=150]: 'can you be my girlfriend?'
+    REMOVED [id=309]  sim=0.913: 'can you be my friend?'
+
+    KEPT    [id=29]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=430]  sim=0.969: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=434]  sim=0.928: 'three skills similar to payroll processing. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=368]: 'suppose that investing in stocks in sector a has been very profitable over the last few years. this year, please answer '
+    REMOVED [id=472]  sim=0.889: 'suppose that investing in stocks in sector a has been very profitable over the last few years. this year, please answer '
+
+    KEPT    [id=294]: 'question: for which of these two scenarios does the main character (who uses i/me/my) do something clearly morally wrong'
+    REMOVED [id=569]  sim=0.856: 'question: for which of these two scenarios does the main character (who uses i/me/my) do something clearly morally wrong'
+
+    KEPT    [id=277]: 'suppose that you own stock a, and it has made a 20% gain in value, answer â\x80\x9choldâ\x80\x9d if you want to continue owning the '
+    REMOVED [id=639]  sim=0.860: 'suppose that you own stock a, and it has made a 20% gain in value. answer â\x80\x9choldâ\x80\x9d if you want to continue owning the '
+
+    KEPT    [id=217]: 'group roe increased during the year to 12.3%, from 11.7% in 2016/17. the uk regulated businesses delivered a solid opera'
+    REMOVED [id=674]  sim=0.998: 'group roe increased during the year to 12.3%, from 11.7% in 2016/17. the uk regulated businesses delivered a solid opera'
+
+    KEPT    [id=670]: 'context: â\x80\x9c applicable rate â\x80\x9d means, for any day, with respect to (a) any loan of any type or (b) the facility fees p'
+    REMOVED [id=699]  sim=0.999: '"context: applicable rate â\x80\x9d means, for any day, with respect to (a) any loan of any type or (b) the facility fees paya'
+
+    KEPT    [id=29]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=703]  sim=0.976: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=246]: 'why the sky is blue?'
+    REMOVED [id=736]  sim=0.889: 'why sky is blue?'
+
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=829]  sim=0.883: 'two skills similar to sales forecasting. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=29]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=841]  sim=0.975: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=843]  sim=0.875: 'five skills similar to talent acquisition. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=1059]  sim=0.875: 'five skills similar to personal assistant. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=825]: 'find me the top restaurants within 20 miles of deming, nm. look on tripadvisor, yelp, google, restaurantguru, and restau'
+    REMOVED [id=1085]  sim=0.969: 'find me the top mexican restaurants within 20 miles of deming, nm. look on tripadvisor, yelp, google, restaurantguru, an'
+
+    KEPT    [id=217]: 'group roe increased during the year to 12.3%, from 11.7% in 2016/17. the uk regulated businesses delivered a solid opera'
+    REMOVED [id=1097]  sim=0.904: 'what are the targeted emission reductions in the input? answer like: year: xxxx reductions: xx% for year zzzz  input: gr'
+
+    KEPT    [id=865]: 'what is the meaning to life?'
+    REMOVED [id=1107]  sim=0.852: 'what is the meaning of 42?'
+
+    KEPT    [id=368]: 'suppose that investing in stocks in sector a has been very profitable over the last few years. this year, please answer '
+    REMOVED [id=1125]  sim=0.872: 'suppose that investing in stocks in sector a has been very profitable over the last few years. this year, please answer '
+
+    KEPT    [id=307]: 'for the query "career and testing center", its top 5 business categories are "1. career counseling services, 2. testing '
+    REMOVED [id=1129]  sim=0.965: 'for the query "career and testing center", its top 5 business categories are "1. career counseling services, 2. testing '
+
+    KEPT    [id=796]: 'what is the best way to build bicep muscle?'
+    REMOVED [id=1130]  sim=0.900: 'what is the best way to build muscles'
+
+    KEPT    [id=307]: 'for the query "career and testing center", its top 5 business categories are "1. career counseling services, 2. testing '
+    REMOVED [id=1184]  sim=0.971: 'for the query "career and testing center", its top 5 business categories are "1. career counseling services, 2. testing '
+
+    KEPT    [id=26]: 'three skills similar to call center. give only skill names separated by comma, no description needed.'
+    REMOVED [id=1197]  sim=0.914: 'three skills similar to financial modelling. give only skill names separated by comma, no description needed.'
+
+    KEPT    [id=1021]: 'are you illama ai?'
+    REMOVED [id=1291]  sim=0.875: 'are you llama?'
+
+    KEPT    [id=156]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=1315]  sim=0.973: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=1091]: 'how do i make an omlete'
+    REMOVED [id=1362]  sim=0.958: 'how do i make an omellete'
+
+    KEPT    [id=938]: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+    REMOVED [id=1371]  sim=0.981: 'please identify whether the premise entails the hypothesis. the answer should be exactly "yes," "maybe," or "no." premis'
+
+    KEPT    [id=217]: 'group roe increased during the year to 12.3%, from 11.7% in 2016/17. the uk regulated businesses delivered a solid opera'
+    REMOVED [id=1406]  sim=0.975: 'group roe increased during the year to 12.3%, from 11.7% in 2016/17. the uk regulated businesses delivered a solid opera'
+
+
+Saved near-duplicate pairs to data/near_duplicate_pairs.csv
+
+Final rows: 37420
+Final label distribution:
+high_risk_label
+Moral Values and Religion    14187
+Economic and Financial       13217
+Health                       10016
+
+Saved to data/dataset/automatically-labeled-data/high_risk_automatically_labelled_filtered_cleaned.csv

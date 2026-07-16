@@ -1,24 +1,48 @@
 import pandas as pd
 import pathlib as Pathlib
-from safe_spoon.utils.data_utils import remove_empties, remove_exact_duplicates, remove_near_duplicates
+from safe_spoon.utils.common import load_yaml_config_file
+from safe_spoon.utils.data_utils import (
+    DEMO_REGEX,
+    NAME_PATTERN,
+    remove_contained_in,
+    remove_empties,
+    remove_exact_duplicates,
+    remove_name_pattern,
+    remove_near_duplicates,
+)
 
-csv_files = sorted(Pathlib.Path("data/responses_with_search_tool").glob("*.csv"))
+_cfg = load_yaml_config_file()
+SIMILARITY_THRESHOLD = _cfg["similarity_threshold"]
 
-dfs = []
-for f in csv_files:
-    df = pd.read_csv(f)
-    print(f"df len is {len(df)} before removing empties for {f}")
-    
-    df = remove_empties(df, "query")
-    print(f"df len is {len(df)} after removing empties for {f}")
-   
-    df, _ = remove_exact_duplicates(df, "query")
-    print(f"df len is {len(df)} after removing exact duplicates for {f}")
-   
-    df, _ = remove_near_duplicates(df, "query", 0.95)
-    print(f"df len is {len(df)} after removing near duplicates for {f}")
-    import pdb; pdb.set_trace()
-    dfs.append(df)
+
+def filter_df(df: pd.DataFrame, content_col: str, label) -> pd.DataFrame:
+    """Apply the same filtering pipeline used in aux_scripts/data_filtering.py."""
+    print(f"df len is {len(df)} before removing empties for {label}")
+
+    df = remove_empties(df, content_col)
+    print(f"df len is {len(df)} after removing empties for {label}")
+
+    df, _ = remove_exact_duplicates(df.reset_index(drop=True), content_col)
+    print(f"df len is {len(df)} after removing exact duplicates for {label}")
+
+    df = remove_name_pattern(df.reset_index(drop=True), content_col, NAME_PATTERN)
+    print(f"df len is {len(df)} after removing NAME_X pattern for {label}")
+
+    df = remove_name_pattern(df.reset_index(drop=True), content_col, DEMO_REGEX)
+    print(f"df len is {len(df)} after removing demographic self-disclosure for {label}")
+
+    df, _ = remove_contained_in(df.reset_index(drop=True), content_col)
+    print(f"df len is {len(df)} after removing contained-in rows for {label}")
+
+    df, _ = remove_near_duplicates(df.reset_index(drop=True), content_col, SIMILARITY_THRESHOLD)
+    print(f"df len is {len(df)} after removing near duplicates for {label}")
+
+    return df.reset_index(drop=True)
+
+
+csv_files = sorted(Pathlib.Path("data/dataset/responses_without_search_tool").glob("*.csv"))
+
+dfs = [filter_df(pd.read_csv(f), "query", f) for f in csv_files]
 
 # check that all dfs have the same prompt_id
 prompt_ids = [set(df["prompt_id"].dropna().astype(str).unique()) for df in dfs]
@@ -63,18 +87,9 @@ if final_df["text"].duplicated().any():
     print(duplicates)
     
 # read additionally data/high_risk_automatically_labelled_filtered.csv and add to final_df, but only if the prompt_id is not already in final_df
-high_risk_df = pd.read_csv("data/high_risk_automatically_labelled_filtered.csv", encoding="latin-1")
+high_risk_df = pd.read_csv("data/dataset/automatically-labeled-data/high_risk_automatically_labelled_filtered.csv", encoding="latin-1")
 
-print(f"high_risk_df len is {len(high_risk_df)} before removing empties")
-
-high_risk_df = remove_empties(high_risk_df, "content")
-print(f"high_risk_df len is {len(high_risk_df)} after removing empties")
-
-high_risk_df, _ = remove_exact_duplicates(high_risk_df, "content")
-print(f"high_risk_df len is {len(high_risk_df)} after removing exact duplicates")
-
-high_risk_df, _ = remove_near_duplicates(high_risk_df, "content", 0.95)
-print(f"high_risk_df len is {len(high_risk_df)} after removing near duplicates")
+high_risk_df = filter_df(high_risk_df, "content", "high_risk_df")
 
 final_df_with_hr = pd.concat([final_df, high_risk_df[["prompt_id", "content"]].rename(columns={"prompt_id": "id", "content": "text"})], ignore_index=True)
 

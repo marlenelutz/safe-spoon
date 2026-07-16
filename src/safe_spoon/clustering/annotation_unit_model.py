@@ -1,3 +1,5 @@
+"""Same concept as the TMmodel but for annotation units instead of topics.  Builds the unit tree and generates LLM labels/notes.
+"""
 import json
 import logging
 from pathlib import Path
@@ -14,30 +16,6 @@ from .annotation_units import (
 
 
 class AnnotationUnitModel:
-    """Annotation-unit tree builder and LLM labeller.
-
-    Parameters
-    ----------
-    flat_nodes:
-        List of node dicts as returned by flatten_tree().
-    root_id:
-        ID string of the root node inside flat_nodes.
-    thetas:
-        Document-topic matrix (n_docs x n_topics).
-    topic_keys:
-        Per-topic keyword lists (n_topics x n_words).
-    topic_labels:
-        Per-topic human-readable labels.
-    queries:
-        Raw query strings, indexed 0..n_docs-1 (same order as thetas).
-    model_path:
-        Directory where unit_labels.json is saved/loaded.
-    min_size / max_purity / pw_*:
-        Annotation-unit stopping and scoring parameters read from config
-    llm_*:
-        LLM settings forwarded to Prompter
-    """
-
     def __init__(
         self,
         flat_nodes: List[dict],
@@ -47,11 +25,8 @@ class AnnotationUnitModel:
         topic_labels: List[str],
         queries: List[str],
         model_path: Optional[str] = None,
-        min_size: int = 50,
-        max_purity: float = 0.70,
-        pw_mixture: float = 0.5,
-        pw_size: float = 0.3,
-        pw_balance: float = 0.2,
+        min_size: int = 20,
+        max_rel_dist: float = 0.40,
         llm_provider: Optional[str] = None,
         llm_model_type: Optional[str] = None,
         llm_api_key: Optional[str] = None,
@@ -65,11 +40,8 @@ class AnnotationUnitModel:
         self._topic_labels = topic_labels or []
         self._queries = queries
         self._model_path = Path(model_path) if model_path else None
-        self._min_size = min_size
-        self._max_purity = max_purity
-        self._pw_mixture = pw_mixture
-        self._pw_size = pw_size
-        self._pw_balance = pw_balance
+        self._min_size    = min_size
+        self._max_rel_dist = max_rel_dist
         self._llm_provider = llm_provider
         self._llm_model_type = llm_model_type
         self._llm_api_key = llm_api_key
@@ -78,7 +50,7 @@ class AnnotationUnitModel:
 
         self._unit_tree: Optional[dict] = None
         self._n_units: int = 0
-        self._unit_labels: Dict[str, str] = {}
+        self._unit_labels: Dict[str, Dict[str, str]] = {}
 
     @classmethod
     def from_lda(
@@ -89,8 +61,7 @@ class AnnotationUnitModel:
         n_repr: int = 5,
         **kwargs,
     ) -> "AnnotationUnitModel":
-        """Recomputes the Bhattacharyya distance matrix and agglomerative
-        clustering from a loaded LDATopicModel, and builds the annotation-unit tree.
+        """Recomputes the Bhattacharyya distance matrix and agglomerative clustering from a loaded LDATopicModel, and builds the annotation-unit tree.
 
         Parameters
         ----------
@@ -101,15 +72,15 @@ class AnnotationUnitModel:
             lda._df["text"] (requires the model to have been loaded
             with corpus=).
         **kwargs:
-            Forwarded verbatim to the constructor (e.g. min_size,
-            max_purity, llm_provider, ...).
+            Forwarded as it comes to the constructor (e.g. min_size,
+            max_rel_dist, llm_provider, ...).
         """
         from safe_spoon.clustering.hierarchical import build_flat_tree
 
         if queries is None:
             queries, _ = lda.get_ordered_corpus()
 
-        thetas     = lda.get_thetas()
+        thetas = lda.get_thetas()
         topic_keys = lda.get_topic_keys()
 
         lda.tm.load_tpc_labels()
@@ -141,19 +112,16 @@ class AnnotationUnitModel:
     def build(self) -> "AnnotationUnitModel":
         """Builds the annotation-unit tree from the stored flat nodes."""
         nodes_by_id = {n["id"]: n for n in self._flat_nodes}
-        leaf_id    = compute_leaf_indices(nodes_by_id, self._root_id)
+        leaf_id = compute_leaf_indices(nodes_by_id, self._root_id)
         self._unit_tree, self._n_units = build_unit_tree(
             nodes_by_id,
             self._root_id,
             leaf_id,
             self._thetas,
             min_size = self._min_size,
-            max_purity = self._max_purity,
+            max_rel_dist = self._max_rel_dist,
             topic_labels = self._topic_labels,
             topic_keys = self._topic_keys,
-            pw_mixture = self._pw_mixture,
-            pw_size = self._pw_size,
-            pw_balance = self._pw_balance,
         )
         return self
     
@@ -162,14 +130,13 @@ class AnnotationUnitModel:
         topn_docs: int = 5,
         prompt_path: Optional[str] = None,
         max_retries: int = 3,
-    ) -> List[Tuple[str, str]]:
-        """Generate LLM labels for every annotation unit.
+    ) -> List[Tuple[str, Dict[str, str]]]:
+        """Generate LLM labels + annotation notes for every annotation unit.
 
         Returns
         -------
-        List[Tuple[str, str]]
-            [(node_id, label), ...] sorted by node_id — analogous to
-            TMmodel.generate_topic_outputs() returning [(tpc_id, label), ...].
+        List[Tuple[str, Dict[str, str]]]
+            [(node_id, {"label": ..., "note": ...}), ...] sorted by node_id.
         """
         if self._unit_tree is None:
             self.build()
@@ -212,11 +179,46 @@ class AnnotationUnitModel:
             return None
         return self._model_path / "TMmodel" / "unit_labels.json"
 
-    def load_unit_labels(self) -> bool:
-        """Load labels from {model_path}/TMmodel/unit_labels.json.
+    @property
+    def _params_path(self) -> Optional[Path]:
+        if self._model_path is None:
+            return None
+        return self._model_path / "TMmodel" / "unit_tree_params.json"
 
-        Returns True if the file existed and was loaded.
+    def save_params(self) -> None:
+        """Persist the min_size/max_rel_dist thresholds used to build this unit tree, alongside the labels they were generated for.
         """
+        p = self._params_path
+        if p is None:
+            self._logger.warning("No model_path set; unit tree params not saved.")
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            json.dumps(
+                {
+                    "min_size": self._min_size,
+                    "max_rel_dist": self._max_rel_dist,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        self._logger.info("Unit tree params saved to %s", p)
+
+    @staticmethod
+    def load_saved_params(model_path: Optional[str]) -> Optional[Dict[str, float]]:
+        """Load the min_size/max_rel_dist thresholds a unit tree
+        was last built with"""
+        
+        if not model_path:
+            return None
+        p = Path(model_path) / "TMmodel" / "unit_tree_params.json"
+        if not p.exists():
+            return None
+        return json.loads(p.read_text(encoding="utf-8"))
+
+    def load_unit_labels(self) -> bool:
+        """Load labels from {model_path}/TMmodel/unit_labels.json."""
         p = self._labels_path
         if p is None or not p.exists():
             return False
@@ -246,14 +248,15 @@ class AnnotationUnitModel:
         return self._n_units
 
     @property
-    def unit_labels(self) -> Dict[str, str]:
+    def unit_labels(self) -> Dict[str, Dict[str, str]]:
         return dict(self._unit_labels)
 
     def get_unit_label(self, node_id: str) -> str:
-        """Return the stored label for node_id, falling back to the rule-based label."""
-        if node_id in self._unit_labels:
-            return self._unit_labels[node_id]
-        
+        """Return the stored LLM label for node_id, falling back to the rule-based label."""
+        entry = self._unit_labels.get(node_id)
+        if entry and entry.get("label"):
+            return entry["label"]
+
         # if it does not work, then derive from mean_theta via the rule-based function
         nodes_by_id = {n["id"]: n for n in self._flat_nodes}
         if node_id not in nodes_by_id:
@@ -264,3 +267,8 @@ class AnnotationUnitModel:
             return ""
         mean_theta = self._thetas[ids].mean(axis=0).tolist()
         return make_unit_label(mean_theta, self._topic_labels, self._topic_keys)
+
+    def get_unit_note(self, node_id: str) -> str:
+        """Return the stored annotation note for node_id, or "" if none was generated."""
+        entry = self._unit_labels.get(node_id)
+        return entry.get("note", "") if entry else ""

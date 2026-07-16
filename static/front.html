@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<script src="./js/ui_helpers.js"></script>
 </head>
 <body>
 <x-dc>
@@ -41,19 +42,6 @@
 
   /* Mono font for rank badges */
   .mono { font-family: 'DM Mono', 'Spline Sans Mono', ui-monospace, monospace; }
-
-  /* Resizable panel handle */
-  .theme-resize-handle { width: 6px; flex-shrink: 0; cursor: col-resize; background: transparent; border-left: 1px solid var(--border,#e3e6eb); transition: background .15s; }
-  .theme-resize-handle:hover, .theme-resize-handle.is-dragging { background: rgba(11,117,142,0.18); }
-
-  /* Pagination buttons */
-  .pager-btn { border: 1px solid var(--border,#dde0da); background: transparent; font-size: 12px; font-weight: 500; padding: 5px 11px; border-radius: 7px; font-family: inherit; }
-  .pager-btn-on { color: var(--ink2,#545c55); cursor: pointer; }
-  .pager-btn-off { color: var(--ink4,#b8c0b9); cursor: default; }
-
-  /* Query annotation label checkboxes */
-  .lbl-chk { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 400; cursor: pointer; user-select: none; padding: 3px 8px; border-radius: 6px; transition: all .12s; border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink3,#8a9389); }
-  .lbl-chk-on { font-weight: 600; border-color: var(--accent,#0b758e); background: var(--soft,#d9eff3); color: var(--accent,#0b758e); }
 </style>
 </helmet>
 <div style="--accent: {{ accent }}; --soft: {{ accentSoft }}; --bg: {{ pBg }}; --panel: {{ pPanel }}; --surface: {{ pSurface }}; --border: {{ pBorder }}; --track: {{ pTrack }}; --chip: {{ pChip }}; --ink: {{ pInk }}; --ink2: {{ pInk2 }}; --ink3: {{ pInk3 }}; --ink4: {{ pInk4 }}; height: 100vh; display: flex; flex-direction: column; background: var(--bg,#e8eae6); color: var(--ink,#1f2430); overflow: hidden;">
@@ -186,23 +174,14 @@
               <sc-for list="{{ gDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                  <div style="display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; align-items: center;">
                     <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
-                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                      <label style="{{ lbl.style }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
                     </sc-for>
                   </div>
                 </div>
               </sc-for>
             </div>
-            <sc-if value="{{ gDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb); max-width: 720px;">
-                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ gDetail.queryPager.label }}</span>
-                <div style="display: flex; gap: 6px;">
-                  <button onClick="{{ gDetail.queryPager.onPrev }}" class="{{ gDetail.queryPager.prevClass }}">← Prev</button>
-                  <button onClick="{{ gDetail.queryPager.onNext }}" class="{{ gDetail.queryPager.nextClass }}">Next →</button>
-                </div>
-              </div>
-            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ noCluster }}" hint-placeholder-val="{{ false }}">
@@ -218,9 +197,9 @@
   <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
     <div style="display: flex; gap: 4px; padding: 9px 26px; background: var(--surface,#f5f6f8); border-bottom: 1px solid var(--border,#e3e6eb); flex-shrink: 0;">
       <button onClick="{{ modeCards }}" style="{{ themeCardsTabStyle }}">Theme cards</button>
-      <button onClick="{{ modeMap }}" style="{{ themeMapTabStyle }}">Map view</button>
+      <button onClick="{{ modeMap }}" style="{{ themeMapTabStyle }}">Map</button>
     </div>
-    <div style="{{ themesRowStyle }}" onMouseMove="{{ onThemePanelMove }}" onMouseUp="{{ onThemePanelUp }}" onMouseLeave="{{ onThemePanelUp }}">
+    <div style="flex: 1; display: flex; overflow: hidden;">
       <!-- left: cards or map -->
       <sc-if value="{{ isCards }}" hint-placeholder-val="{{ true }}">
         <div style="flex: 1; overflow-y: auto; padding: 20px 24px; min-width: 0;">
@@ -235,7 +214,7 @@
                   </sc-for>
                 </div>
                 <div style="height: 6px; background: var(--border,#e3e6eb); border-radius: 6px; overflow: hidden;"><div style="height: 100%; width: {{ tc.prevWidth }}; background: {{ tc.color }}; border-radius: 6px;"></div></div>
-                <div style="font-size: 11px; color: var(--ink3,#98a0ab); margin-top: 5px; font-weight: 600;">{{ tc.pctLabel }} topic size</div>
+                <div style="font-size: 11px; color: var(--ink3,#98a0ab); margin-top: 5px; font-weight: 600;">{{ tc.pctLabel }} of queries</div>
               </div>
             </sc-for>
           </div>
@@ -258,7 +237,7 @@
             <div style="position: relative; width: 800px; height: 620px; flex-shrink: 0;">
               <svg viewBox="0 0 800 620" style="width: 100%; height: 100%; display: block;">
                 <sc-for list="{{ bubbles }}" as="b" hint-placeholder-count="5">
-                  <circle cx="{{ b.cx }}" cy="{{ b.cy }}" r="{{ b.r }}" fill="{{ b.fill }}" stroke="{{ b.stroke }}" stroke-width="{{ b.sw }}" title="{{ b.tooltip }}" style="cursor: pointer; transition: all .2s;" onClick="{{ b.onClick }}"></circle>
+                  <circle cx="{{ b.cx }}" cy="{{ b.cy }}" r="{{ b.r }}" fill="{{ b.fill }}" stroke="{{ b.stroke }}" stroke-width="{{ b.sw }}" style="cursor: pointer; transition: all .2s;" onClick="{{ b.onClick }}"></circle>
                 </sc-for>
               </svg>
               <div style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;">
@@ -272,10 +251,8 @@
           </div>
         </div>
       </sc-if>
-      <!-- theme detail resize handle -->
-      <div class="{{ themeHandleClass }}" onMouseDown="{{ onThemePanelDown }}"></div>
       <!-- theme detail -->
-      <div style="width: {{ themeDetailWidth }}px; flex-shrink: 0; background: var(--panel,#ffffff); overflow-y: auto;">
+      <div style="width: 400px; flex-shrink: 0; border-left: 1px solid var(--border,#e3e6eb); background: var(--panel,#ffffff); overflow-y: auto;">
         <sc-if value="{{ topicSelected }}" hint-placeholder-val="{{ true }}">
           <div style="padding: 22px 24px; animation: ss-fade .25s ease;">
             <div style="font-size: 10px; font-weight: 700; color: var(--accent, #0b758e); text-transform: uppercase; letter-spacing: 0.06em;">Theme {{ tDetail.num }}</div>
@@ -285,29 +262,20 @@
                 <span style="background: var(--chip,#eef0f4); border-radius: 6px; padding: 3px 9px; font-size: 11.5px; color: var(--ink2,#6b7280);">{{ w.w }}</span>
               </sc-for>
             </div>
-            <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-bottom: 18px; font-weight: 600;">Topic size in this domain: {{ tDetail.pctLabel }}</div>
+            <div style="font-size: 12px; color: var(--ink3,#98a0ab); margin-bottom: 18px; font-weight: 600;">Appears in {{ tDetail.pctLabel }} of this domain&rsquo;s queries</div>
             <div style="font-size: 11px; color: var(--ink4,#bcc2cc); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;">Typical queries</div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <sc-for list="{{ tDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--surface,#f5f6f8); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 11px 13px;">
                   <div style="font-size: 13px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                  <div style="display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; align-items: center;">
                     <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
-                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                      <label style="{{ lbl.style }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
                     </sc-for>
                   </div>
                 </div>
               </sc-for>
             </div>
-            <sc-if value="{{ tDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb);">
-                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ tDetail.queryPager.label }}</span>
-                <div style="display: flex; gap: 6px;">
-                  <button onClick="{{ tDetail.queryPager.onPrev }}" class="{{ tDetail.queryPager.prevClass }}">← Prev</button>
-                  <button onClick="{{ tDetail.queryPager.onNext }}" class="{{ tDetail.queryPager.nextClass }}">Next →</button>
-                </div>
-              </div>
-            </sc-if>
           </div>
         </sc-if>
       </div>
@@ -395,15 +363,122 @@
               </sc-if>
             </div>
 
-            <!-- guideline composer -->
-            <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-left: 3px solid var(--accent,#0b758e); border-radius: 10px; padding: 16px 18px; margin-bottom: 26px;">
-              <h3 style="font-size: 13.5px; font-weight: 600; margin: 0 0 3px; color: var(--ink,#1a1e1b);">Safety guideline</h3>
-              <div style="font-size: 11.5px; color: var(--ink3,#8a9389); margin-bottom: 11px;">Write how an annotator should handle these queries safely. Saved automatically.</div>
-              <textarea value="{{ uDetail.guideline }}" onChange="{{ onGuidelineInput }}" onInput="{{ onGuidelineInput }}" placeholder="e.g. These are genuine health questions. Flag any that ask for diagnosis or dosing as needing a medical disclaimer…" style="width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--border,#dde0da); border-radius: 8px; padding: 11px 12px; font-size: 13px; line-height: 1.6; color: var(--ink,#1a1e1b); background: var(--surface,#eef0ec); outline: none;"></textarea>
-              <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
-                <button onClick="{{ suggestDraft }}" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">✦ Suggest a draft</button>
-                <button onClick="{{ markDone }}" style="{{ markDoneStyle }}">{{ markDoneLabel }}</button>
+            <!-- AI annotation note -->
+            <sc-if value="{{ hasNote }}" hint-placeholder-val="{{ false }}">
+              <div style="background: var(--soft, #d9eff3); border-radius: 10px; padding: 13px 16px; margin-bottom: 16px;">
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--accent, #0b758e); margin-bottom: 4px;">✦ AI ANNOTATION NOTE</div>
+                <div style="font-size: 12.5px; line-height: 1.6; color: var(--ink2,#545c55);">{{ uDetail.note }}</div>
               </div>
+            </sc-if>
+
+            <!-- safety guideline (structured rubric, server-persisted) -->
+            <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-left: 3px solid #7a5c99; border-radius: 10px; padding: 16px 18px; margin-bottom: 26px;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 3px;">
+                <h3 style="font-size: 13.5px; font-weight: 600; margin: 0; color: var(--ink,#1a1e1b);">Safety guideline</h3>
+                <span style="font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: #f0e8f7; color: #7a5c99;">{{ rubricStatusLabel }}</span>
+                <span style="margin-left: auto; font-size: 11px; color: var(--ink3,#8a9389);">Annotator</span>
+                <input value="{{ annotator }}" onChange="{{ onAnnotatorInput }}" style="width: 110px; font-size: 11.5px; padding: 4px 8px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);">
+              </div>
+              <div style="font-size: 11.5px; color: var(--ink3,#8a9389); margin-bottom: 12px;">Rows are criteria to check; columns are the risk profiles defined for this domain. Persisted to the server per annotator.</div>
+
+              <!-- risk profiles -->
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                <sc-for list="{{ riskProfiles }}" as="rp" hint-placeholder-count="2">
+                  <span title="{{ rp.description }}" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--surface,#eef0ec);border:1px solid var(--border,#dde0da);color:var(--ink2,#545c55);">
+                    {{ rp.name }} · sev {{ rp.severity }}
+                    <span onClick="{{ rp.onDelete }}" style="cursor:pointer;color:var(--ink4,#b8c0b9);">&times;</span>
+                  </span>
+                </sc-for>
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;">
+                <input value="{{ newProfileName }}" onInput="{{ onNewProfileName }}" placeholder="Risk profile name (e.g. High risk users)" style="flex: 1; min-width: 180px; font-size: 12px; padding: 6px 9px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);">
+                <input value="{{ newProfileDesc }}" onInput="{{ onNewProfileDesc }}" placeholder="Description" style="flex: 2; min-width: 200px; font-size: 12px; padding: 6px 9px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);">
+                <input type="number" value="{{ newProfileSeverity }}" onInput="{{ onNewProfileSeverity }}" placeholder="Sev" style="width: 56px; font-size: 12px; padding: 6px 9px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);">
+                <button onClick="{{ addRiskProfile }}" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 6px 11px; border-radius: 6px; cursor: pointer; font-family: inherit;">+ Add profile</button>
+              </div>
+
+              <sc-if value="{{ rubricNeedsProfiles }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size: 12px; color: var(--ink3,#8a9389); padding: 8px 0;">Define at least one risk profile above before writing a rubric for this domain.</div>
+              </sc-if>
+
+              <sc-if value="{{ canEditRubric }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+                  <button onClick="{{ suggestRubric }}" style="border: 1px solid var(--border,#dde0da); background: transparent; color: #7a5c99; font-weight: 500; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">{{ suggestButtonLabel }}</button>
+                  <button onClick="{{ addCriterion }}" style="border: 1px solid var(--border,#dde0da); background: transparent; color: var(--ink2,#545c55); font-weight: 500; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">+ Add criterion</button>
+                  <span style="margin-left: auto;"></span>
+                  <button onClick="{{ saveRubricDraft }}" style="border: 1px solid var(--border,#dde0da); background: var(--surface,#eef0ec); color: var(--ink2,#545c55); font-weight: 600; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">Save draft</button>
+                  <button onClick="{{ confirmRubric }}" style="border: none; background: #7a5c99; color: #fff; font-weight: 600; font-size: 12px; padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit;">Confirm rubric</button>
+                </div>
+
+                <sc-if value="{{ hasRubricError }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 11.5px; color: #b3261e; margin-bottom: 10px;">{{ rubricError }}</div>
+                </sc-if>
+
+                <!-- parent rubric: exact member-set match from an earlier, coarser pipeline run -->
+                <sc-if value="{{ hasParentRubric }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; gap: 10px; background: #f0e8f7; border: 1px solid #d9c8ea; border-radius: 9px; padding: 10px 13px; margin-bottom: 12px;">
+                    <div style="flex: 1; font-size: 11.5px; color: #5c4270;">This unit is fully covered by a broader <strong>confirmed</strong> rubric: {{ parentRubricPreview }}</div>
+                    <button onClick="{{ inheritParent }}" style="border: none; background: #7a5c99; color: #fff; font-weight: 600; font-size: 11.5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; white-space: nowrap;">Inherit</button>
+                  </div>
+                </sc-if>
+
+                <!-- similar confirmed rubrics: semantic (mean_theta) similarity, secondary to an exact parent match -->
+                <sc-if value="{{ hasSimilarConfirmed }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-bottom: 12px;">
+                    <div style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;">Similar confirmed rubrics</div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <sc-for list="{{ similarConfirmedList }}" as="sim" hint-placeholder-count="2">
+                        <div style="display: flex; align-items: center; gap: 10px; background: var(--surface,#eef0ec); border: 1px solid var(--border,#e3e6eb); border-radius: 8px; padding: 8px 11px;">
+                          <span style="font-size: 11px; font-weight: 700; color: #7a5c99; flex-shrink: 0;">{{ sim.pct }}</span>
+                          <div style="flex: 1; font-size: 11.5px; color: var(--ink2,#545c55);">{{ sim.preview }}</div>
+                          <button onClick="{{ sim.onUse }}" style="border: 1px solid var(--border,#dde0da); background: var(--panel,#ffffff); color: var(--ink2,#545c55); font-weight: 600; font-size: 11px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; white-space: nowrap;">Use as starting point</button>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ hasCandidates }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;">LLM candidates — click to preview in the form below</div>
+                  <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <sc-for list="{{ rubricCandidatesList }}" as="c" hint-placeholder-count="3">
+                      <div onClick="{{ c.onPick }}" style="{{ c.cardStyle }}">
+                        <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 4px;">
+                          <span style="font-size: 11.5px; font-weight: 700; color: #7a5c99;">Candidate {{ c.index }}</span>
+                          <span style="{{ c.pickStyle }}">{{ c.pickLabel }}</span>
+                        </div>
+                        <div style="font-size: 11px; line-height: 1.5; color: var(--ink2,#545c55);">{{ c.preview }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <sc-for list="{{ rubricCriteria }}" as="crit" hint-placeholder-count="2">
+                    <div style="background: var(--surface,#eef0ec); border: 1px solid var(--border,#e3e6eb); border-radius: 10px; padding: 12px 14px;">
+                      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                        <input value="{{ crit.title }}" onInput="{{ crit.onTitleInput }}" placeholder="Criterion title" style="flex: 1; font-weight: 600; font-size: 12.5px; padding: 6px 9px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--panel,#ffffff); color: var(--ink,#1a1e1b);">
+                        <span onClick="{{ crit.onRemove }}" style="cursor:pointer;font-size:12px;color:var(--ink4,#b8c0b9);">remove</span>
+                      </div>
+                      <input value="{{ crit.description }}" onInput="{{ crit.onDescInput }}" placeholder="What this criterion checks" style="width: 100%; font-size: 11.5px; padding: 5px 9px; margin-bottom: 10px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--panel,#ffffff); color: var(--ink2,#545c55);">
+                      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <sc-for list="{{ crit.cells }}" as="cell" hint-placeholder-count="2">
+                          <div style="flex: 1; min-width: 220px; background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 8px; padding: 9px 11px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                              <span style="font-size: 11px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ cell.profileName }}</span>
+                              <sc-if value="{{ cell.isOverride }}" hint-placeholder-val="{{ false }}">
+                                <span style="font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: #fdf3e3; color: #b9762f;">override</span>
+                              </sc-if>
+                            </div>
+                            <textarea value="{{ cell.expected }}" onInput="{{ cell.onExpectedInput }}" placeholder="Expected model behavior" style="width: 100%; min-height: 48px; resize: vertical; font-size: 11.5px; padding: 6px 8px; margin-bottom: 6px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);"></textarea>
+                            <textarea value="{{ cell.signals }}" onInput="{{ cell.onSignalsInput }}" placeholder="Query signals that elevate risk" style="width: 100%; min-height: 40px; resize: vertical; font-size: 11.5px; padding: 6px 8px; border: 1px solid var(--border,#dde0da); border-radius: 6px; background: var(--surface,#eef0ec); color: var(--ink,#1a1e1b);"></textarea>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
             </div>
 
             <!-- dominant theme + representative queries -->
@@ -422,23 +497,14 @@
               <sc-for list="{{ uDetail.queries }}" as="q" hint-placeholder-count="4">
                 <div style="background: var(--panel,#ffffff); border: 1px solid var(--border,#e3e6eb); border-radius: 11px; padding: 12px 14px;">
                   <div style="font-size: 13.5px; line-height: 1.5; color: var(--ink,#1f2430);">{{ q.text }}</div>
-                  <div style="display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap;">
+                  <div style="display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; align-items: center;">
                     <sc-for list="{{ q.labels }}" as="lbl" hint-placeholder-count="2">
-                      <label class="{{ lbl.cls }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
+                      <label style="{{ lbl.style }}"><input type="checkbox" checked="{{ lbl.checked }}" onChange="{{ lbl.onChange }}" style="accent-color: var(--accent, #0b758e); width: 14px; height: 14px; cursor: pointer;"> {{ lbl.text }}</label>
                     </sc-for>
                   </div>
                 </div>
               </sc-for>
             </div>
-            <sc-if value="{{ uDetail.queryPager.show }}" hint-placeholder-val="{{ false }}">
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1px solid var(--border,#e3e6eb);">
-                <span style="font-size: 12px; color: var(--ink3,#8a9389); font-weight: 500;">{{ uDetail.queryPager.label }}</span>
-                <div style="display: flex; gap: 6px;">
-                  <button onClick="{{ uDetail.queryPager.onPrev }}" class="{{ uDetail.queryPager.prevClass }}">← Prev</button>
-                  <button onClick="{{ uDetail.queryPager.onNext }}" class="{{ uDetail.queryPager.nextClass }}">Next →</button>
-                </div>
-              </div>
-            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ noUnit }}" hint-placeholder-val="{{ false }}">
@@ -462,6 +528,8 @@ class Component extends DCLogic {
       { field: 'trash', label: 'Not a real request' },
       { field: 'demo',  label: 'Mentions personal details' },
     ];
+    this.MIN_SIZE = 3;
+    this.MAX_PURITY = 0.6;
     this.UI = {
       topic_words_max: 10,
       theme_bars_max: 5,
@@ -475,22 +543,31 @@ class Component extends DCLogic {
         guidelines: true,
       },
     };
-    this.MIN_SIZE = 3;
-    this.MAX_PURITY = 0.6;
+
+    // Risk profiles per category and per-unit rubric drafts are fetched from
+    // the server (not localStorage) — they're shared, persistent annotation
+    // data. unitStatuses is a session-only cache of each unit's rubric
+    // status ('empty'/'draft'/'done'), populated lazily as units are opened
+    // (see loadRubricForUnit/saveRubric) rather than fetched in bulk.
+    this.RISK_PROFILES = {};
+    this.RUBRIC_CACHE = {};
 
     const labels = this._load('safespoon.labels', {});
-    const guides = this._load('safespoon.guidelines', {});
     this.state = {
       loading: true,
-      view: 'themes',
+      view: 'groups',
       catKey: null,
       gran: 4,
       selCluster: null, focus: null, cCollapsed: new Set(),
-      selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null, themeDetailWidth: 480, _themePanelDrag: null,
-      gQueryPage: 0, tQueryPage: 0, uQueryPage: 0,
+      selTopic: 0, tMode: 'cards', mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null,
       uMode: 'priority', selUnit: null, uCollapsed: new Set(),
       showIntro: true, showGlossary: false,
-      labels, guides,
+      labels, unitStatuses: {},
+      annotator: this._load('safespoon.annotator', 'annotator1'),
+      newProfileName: '', newProfileDesc: '', newProfileSeverity: 1,
+      rubricDraft: null, rubricStatus: 'empty', rubricLoading: false,
+      rubricCandidates: null, rubricAppliedIndex: null, rubricSuggesting: false, rubricError: null,
+      rubricParent: null, rubricSimilar: [],
     };
   }
 
@@ -534,12 +611,14 @@ class Component extends DCLogic {
       this.setState({ labels: mergedLabels });
 
       for (const cat of init.categories) {
-        const [cd, td, ud] = await Promise.all([
+        const [cd, td, ud, rp] = await Promise.all([
           fetch('/api/category/'         + encodeURIComponent(cat)).then(r => r.json()),
           fetch('/api/tree/'             + encodeURIComponent(cat)).then(r => r.json()),
           fetch('/api/annotation_units/' + encodeURIComponent(cat)).then(r => r.json()),
+          fetch('/api/risk_profiles/'    + encodeURIComponent(cat)).then(r => r.json()),
         ]);
         this.CATS[cat] = this._buildCat(cat, cd, td, ud);
+        this.RISK_PROFILES[cat] = rp;
       }
       this.setState({ loading: false, catKey: init.categories[0], view: this._firstEnabledView() });
     });
@@ -564,23 +643,17 @@ class Component extends DCLogic {
     const T = catData.topic_labels.length;
     const queries = catData.queries;
     const thetas  = catData.thetas;
-    const coords = Array.isArray(catData.tpc_coords) ? catData.tpc_coords : [];
-    const alphas = Array.isArray(catData.alphas) ? catData.alphas : [];
+    const coords  = catData.tpc_coords;
 
-    const rawCoords = catData.topic_labels.map((_, i) => {
-      const c = coords[i];
-      if (Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
-        return [Number(c[0]), Number(c[1])];
-      }
-      const ang = (2 * Math.PI * i) / Math.max(1, T);
-      return [Math.cos(ang), Math.sin(ang)];
-    });
+    const xs = coords.map(c => c[0]), ys = coords.map(c => c[1]);
+    const xlo = Math.min.apply(null, xs), xhi = Math.max.apply(null, xs);
+    const ylo = Math.min.apply(null, ys), yhi = Math.max.apply(null, ys);
+    const norm = (v, lo, hi) => lo === hi ? 0.5 : +(0.05 + 0.9 * (v - lo) / (hi - lo)).toFixed(3);
 
     const topics = catData.topic_labels.map((label, i) => ({
       label, words: catData.topic_keys[i].slice(0, this.UI.topic_words_max),
-      x: rawCoords[i][0],
-      y: rawCoords[i][1],
-      alpha: Number.isFinite(alphas[i]) ? Number(alphas[i]) : 0,
+      x: norm(coords[i][0], xlo, xhi),
+      y: norm(coords[i][1], ylo, yhi),
     }));
 
     const nodeMap = {};
@@ -633,7 +706,7 @@ class Component extends DCLogic {
     }
 
     const unitTree = (unitData && unitData.unit_tree) ? unitData.unit_tree : null;
-    return { key, topics, queries, thetas, root: byId[rootKey], byId, qiToTopic, unitTree, topDocs: catData.top_docs || [] };
+    return { key, topics, queries, root: byId[rootKey], byId, qiToTopic, unitTree, topDocs: catData.top_docs || [] };
   }
 
   cat() { return this.CATS[this.state.catKey]; }
@@ -653,19 +726,32 @@ class Component extends DCLogic {
 
   themeBars(n) {
     const cat = this.cat();
-    const ranked = n.theta
-      .map((w, j) => ({ j, w }))
-      .sort((a, b) => b.w - a.w)
-      .filter(x => x.w > this.UI.theme_bar_min_weight)
-      .slice(0, this.UI.theme_bars_max);
+    const ranked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w).filter(x => x.w > this.UI.theme_bar_min_weight).slice(0, this.UI.theme_bars_max);
     if (!ranked.length) return [];
     const max = ranked[0].w;
-    return ranked.map(r => ({
+    const bars = ranked.map(r => ({
       label: cat.topics[r.j].label,
       pct: Math.round(r.w * 100) + '%',
       width: (r.w / max * 100).toFixed(0) + '%',
       color: this.topicColor(r.j),
     }));
+    // The bars above only show each topic's own absolute share of the full
+    // distribution (not renormalised among themselves), so for a mixed unit
+    // they can legitimately add up to well under 100% — the remainder is
+    // spread across topics below the 8% display floor or beyond the top-5
+    // cutoff. Surface that remainder explicitly so the numbers aren't
+    // mistaken for an incomplete/broken breakdown.
+    const shownSum = ranked.reduce((s, r) => s + r.w, 0);
+    const remainder = 1 - shownSum;
+    if (remainder > 0.02) {
+      bars.push({
+        label: 'Other topics',
+        pct: Math.round(remainder * 100) + '%',
+        width: Math.min(100, remainder / max * 100).toFixed(0) + '%',
+        color: 'var(--ink4,#b8c0b9)',
+      });
+    }
+    return bars;
   }
 
   // ---------- clusters ----------
@@ -702,6 +788,8 @@ class Component extends DCLogic {
           id: nid, unit: !!n.is_unit, branch: !n.is_unit,
           node: catNode, children: [],
           priority: n.priority || 0, priority_rank: n.priority_rank || 0,
+          stableId: n.stable_id || null,
+          label: n.label || null, note: n.note || null,
         };
       }
       // Link children (only branch nodes have children_ids in the unit tree)
@@ -758,14 +846,22 @@ class Component extends DCLogic {
     return { tree, units, rankById };
   }
 
-  guideStatus(unitId) {
-    const g = (this.state.guides[this.state.catKey] || {})[unitId];
-    if (!g) return 'empty';
-    return g.done ? 'done' : 'draft';
+  unitStatus(unitId) {
+    return (this.state.unitStatuses[this.state.catKey] || {})[unitId] || 'empty';
   }
-  guideText(unitId) {
-    const g = (this.state.guides[this.state.catKey] || {})[unitId];
-    return g ? (g.text || '') : '';
+
+  // Collapses a rubric's server-side status ('draft'/'submitted'/'confirmed',
+  // or none yet) onto the 3-value badge vocabulary ui_helpers.js expects.
+  _rubricBadgeStatus(rubric) {
+    if (!rubric || !rubric.criteria || !rubric.criteria.length) return 'empty';
+    return rubric.status === 'draft' ? 'draft' : 'done';
+  }
+
+  _setUnitStatus(unitId, rubric) {
+    const ck = this.state.catKey;
+    const unitStatuses = { ...this.state.unitStatuses, [ck]: { ...(this.state.unitStatuses[ck] || {}) } };
+    unitStatuses[ck][unitId] = this._rubricBadgeStatus(rubric);
+    this.setState({ unitStatuses });
   }
 
   // ---------- mutations ----------
@@ -774,20 +870,28 @@ class Component extends DCLogic {
     this.setState({ view: v, showGlossary: false });
   }
   pickCat(k) {
-    this.setState({ catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(), gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0, gQueryPage: 0, tQueryPage: 0, uQueryPage: 0 });
+    this.setState({
+      catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(),
+      gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0,
+      rubricDraft: null, rubricStatus: 'empty', rubricCandidates: null, rubricAppliedIndex: null, rubricError: null,
+      rubricParent: null, rubricSimilar: [],
+    });
   }
   setGran(v) { this.setState({ gran: +v, selCluster: null, focus: null }); }
   selectCluster(node) {
-    this.setState({ selCluster: node.id, focus: node.id, cCollapsed: new Set(), gQueryPage: 0 });
+    this.setState({ selCluster: node.id, focus: node.id, cCollapsed: new Set() });
   }
-  setFocus(id) { this.setState({ focus: id, gQueryPage: 0 }); }
+  setFocus(id) { this.setState({ focus: id }); }
   toggleCollapse(setKey, id) {
     const s = new Set(this.state[setKey]);
     if (s.has(id)) s.delete(id); else s.add(id);
     this.setState({ [setKey]: s });
   }
-  selectUnit(id) { this.setState({ selUnit: id, uQueryPage: 0 }); }
-  selectTopic(j) { this.setState({ selTopic: j, tQueryPage: 0 }); }
+  selectUnit(id, stableId) {
+    this.setState({ selUnit: id, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null });
+    this.loadRubricForUnit(id, stableId);
+  }
+  selectTopic(j) { this.setState({ selTopic: j }); }
 
   _onMapWheel(e) {
     const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
@@ -809,20 +913,7 @@ class Component extends DCLogic {
   _onMapUp() { this.setState({ _mapDrag: null }); }
   _resetMap() { this.setState({ mapZoom: 1, mapPanX: 0, mapPanY: 0, _mapDrag: null }); }
 
-  _onThemePanelDown(e) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    this.setState({ _themePanelDrag: { startX: e.clientX, startW: this.state.themeDetailWidth } });
-  }
-  _onThemePanelMove(e) {
-    const d = this.state._themePanelDrag;
-    if (!d) return;
-    const newW = Math.max(280, Math.min(800, d.startW + (d.startX - e.clientX)));
-    this.setState({ themeDetailWidth: newW });
-  }
-  _onThemePanelUp() { this.setState({ _themePanelDrag: null }); }
-
-  _labelDefaults() {
+  _emptyLabel() {
     const d = {};
     this.LABEL_FIELDS.forEach(lf => { d[lf.field] = false; });
     return d;
@@ -831,7 +922,7 @@ class Component extends DCLogic {
     const labels = JSON.parse(JSON.stringify(this.state.labels));
     const ck = this.state.catKey;
     if (!labels[ck]) labels[ck] = {};
-    if (!labels[ck][qi]) labels[ck][qi] = this._labelDefaults();
+    if (!labels[ck][qi]) labels[ck][qi] = this._emptyLabel();
     labels[ck][qi][field] = val;
     this.setState({ labels });
     this._save('safespoon.labels', labels);
@@ -842,51 +933,178 @@ class Component extends DCLogic {
       body: JSON.stringify({ cat: ck, gi: Number(qi), ...l }),
     });
   }
-  getLabel(qi) {
-    const existing = ((this.state.labels[this.state.catKey] || {})[qi]) || {};
-    const out = this._labelDefaults();
-    Object.keys(out).forEach(f => { if (f in existing) out[f] = !!existing[f]; });
-    return out;
+  getLabel(qi) { return ((this.state.labels[this.state.catKey] || {})[qi]) || this._emptyLabel(); }
+
+  // ---------- structured safety rubric (server-persisted) ----------
+  // Risk profiles are fixed columns per category; criteria (rows) are
+  // free-form per unit, optionally LLM-suggested. See
+  // src/safe_spoon/annotation/ and src/safe_spoon/webapp/rubric_routes.py.
+
+  _emptyCell() { return SafeSpoonHelpers.emptyCell(); }
+  _normalizeCriteria(criteria, profiles) { return SafeSpoonHelpers.normalizeCriteria(criteria, profiles); }
+
+  setAnnotator(v) {
+    this.setState({ annotator: v });
+    this._save('safespoon.annotator', v);
   }
 
-  setGuide(unitId, text, done) {
-    const guides = JSON.parse(JSON.stringify(this.state.guides));
-    const ck = this.state.catKey;
-    if (!guides[ck]) guides[ck] = {};
-    const prev = guides[ck][unitId] || { text: '', done: false };
-    guides[ck][unitId] = { text: text != null ? text : prev.text, done: done != null ? done : prev.done };
-    if (!guides[ck][unitId].text) guides[ck][unitId].done = false;
-    this.setState({ guides });
-    this._save('safespoon.guidelines', guides);
+  addRiskProfile() {
+    const cat = this.state.catKey;
+    const name = this.state.newProfileName.trim();
+    if (!name) return;
+    fetch('/api/risk_profiles/' + encodeURIComponent(cat), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, description: this.state.newProfileDesc,
+        severity_rank: Number(this.state.newProfileSeverity) || 1,
+      }),
+    })
+      .then(r => r.json())
+      .then(rp => {
+        this.RISK_PROFILES[cat] = (this.RISK_PROFILES[cat] || []).concat([rp])
+          .sort((a, b) => a.severity_rank - b.severity_rank);
+        this.setState({ newProfileName: '', newProfileDesc: '', newProfileSeverity: 1 });
+      });
   }
 
-  suggestDraft(u) {
-    const cat = this.cat();
-    const n = u.node;
-    const theme = this.unitLabel(n);
-    const ex = this.reprOf(n).slice(0, 2).map(qi => '"' + cat.queries[qi] + '"');
-    const mixed = n.topic_mixture > 0.5;
-    let txt = 'Queries in this group are mostly about ' + theme.toLowerCase() + ' (e.g. ' + ex.join('; ') + '). ';
-    txt += 'Flag "Not a real request" for test/exam-style prompts that aren\u2019t genuine help-seeking, and "Mentions personal details" when the user states age, sex, or health conditions. ';
-    if (mixed) txt += 'This group is varied, so treat each query on its own and lean cautious: anything touching self-harm, medication dosing, or diagnosis should be routed for a careful, supportive response with a clear disclaimer.';
-    else txt += 'Responses should stay general and supportive, avoid specific dosing or diagnosis, and recommend a professional where appropriate.';
-    this.setGuide(u.id, txt, false);
+  deleteRiskProfile(id) {
+    const cat = this.state.catKey;
+    fetch('/api/risk_profiles/' + encodeURIComponent(cat) + '/' + id, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.error) { alert(res.error); return; }
+        this.RISK_PROFILES[cat] = (this.RISK_PROFILES[cat] || []).filter(p => p.id !== id);
+        this.setState({});
+      });
+  }
+
+  loadRubricForUnit(unitId, stableId) {
+    if (!stableId) { this.setState({ rubricDraft: null, rubricStatus: 'empty', rubricParent: null, rubricSimilar: [] }); return; }
+    const cat = this.state.catKey;
+    const annotator = this.state.annotator;
+    const key = cat + ':' + stableId + ':' + annotator;
+    const cached = this.RUBRIC_CACHE[key];
+    if (cached) {
+      this.setState({
+        rubricDraft: this._normalizeCriteria(cached.rubric.criteria, this.RISK_PROFILES[cat] || []),
+        rubricStatus: cached.rubric.status, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null,
+        rubricParent: cached.parent_rubric || null, rubricSimilar: cached.similar_confirmed || [],
+      });
+      this._setUnitStatus(unitId, cached.rubric);
+      return;
+    }
+    this.setState({ rubricLoading: true, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null });
+    fetch('/api/units/' + encodeURIComponent(cat) + '/' + stableId + '/rubric?annotator=' + encodeURIComponent(annotator))
+      .then(r => r.json())
+      .then(data => {
+        this.RUBRIC_CACHE[key] = data;
+        this.setState({
+          rubricDraft: this._normalizeCriteria(data.rubric.criteria, this.RISK_PROFILES[cat] || []),
+          rubricStatus: data.rubric.status, rubricLoading: false,
+          rubricParent: data.parent_rubric || null, rubricSimilar: data.similar_confirmed || [],
+        });
+        this._setUnitStatus(unitId, data.rubric);
+      })
+      .catch(() => this.setState({ rubricLoading: false, rubricError: 'Could not load rubric.' }));
+  }
+
+  // Clones a parent/similar rubric's criteria into the current draft. Used
+  // by both the "parent rubric" card and the "similar confirmed" list —
+  // they differ only in *which* rubric they clone from.
+  inheritRubric(sourceRubric) {
+    const cat = this.state.catKey;
+    const cloned = SafeSpoonHelpers.cloneCriteriaForInherit(sourceRubric.criteria);
+    this.setState({
+      rubricDraft: this._normalizeCriteria(cloned, this.RISK_PROFILES[cat] || []),
+      rubricCandidates: null, rubricAppliedIndex: null,
+    });
+  }
+
+  requestRubricSuggestions(stableId) {
+    const cat = this.state.catKey;
+    const annotator = this.state.annotator;
+    this.setState({ rubricSuggesting: true, rubricError: null, rubricAppliedIndex: null });
+    fetch('/api/units/' + encodeURIComponent(cat) + '/' + stableId + '/rubric/suggest?annotator=' + encodeURIComponent(annotator), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { this.setState({ rubricSuggesting: false, rubricError: data.error }); return; }
+        this.setState({ rubricCandidates: data.candidates || [], rubricSuggesting: false });
+      })
+      .catch(() => this.setState({ rubricSuggesting: false, rubricError: 'Suggestion request failed.' }));
+  }
+
+  // Keeps rubricCandidates around (rather than clearing them) so the
+  // annotator can click through candidates and compare, instead of losing
+  // the others the moment one is picked.
+  applyCandidate(candidate, index) {
+    const cat = this.state.catKey;
+    this.setState({
+      rubricDraft: this._normalizeCriteria(candidate, this.RISK_PROFILES[cat] || []),
+      rubricAppliedIndex: index,
+    });
+  }
+
+  addCriterionRow() {
+    const cat = this.state.catKey;
+    const profiles = this.RISK_PROFILES[cat] || [];
+    const cells = {};
+    profiles.forEach(p => { cells[p.id] = this._emptyCell(); });
+    const draft = (this.state.rubricDraft || []).concat([{ title: '', description: '', cells }]);
+    this.setState({ rubricDraft: draft });
+  }
+
+  removeCriterionRow(idx) {
+    const draft = (this.state.rubricDraft || []).slice();
+    draft.splice(idx, 1);
+    this.setState({ rubricDraft: draft });
+  }
+
+  updateCriterionField(idx, field, value) {
+    const draft = (this.state.rubricDraft || []).map((c, i) => i === idx ? { ...c, [field]: value } : c);
+    this.setState({ rubricDraft: draft });
+  }
+
+  updateCellField(idx, profileId, field, value) {
+    const draft = (this.state.rubricDraft || []).map((c, i) => {
+      if (i !== idx) return c;
+      const cell = { ...(c.cells[profileId] || this._emptyCell()), [field]: value };
+      if (field === 'expected_behavior' || field === 'risk_signals') cell.is_override = true;
+      return { ...c, cells: { ...c.cells, [profileId]: cell } };
+    });
+    this.setState({ rubricDraft: draft });
+  }
+
+  saveRubric(stableId, confirm) {
+    const cat = this.state.catKey;
+    const annotator = this.state.annotator;
+    const criteria = (this.state.rubricDraft || []).map(c => ({
+      title: c.title, description: c.description,
+      cells: Object.fromEntries(Object.entries(c.cells).map(([pid, cell]) => [pid, cell])),
+    }));
+    fetch('/api/units/' + encodeURIComponent(cat) + '/' + stableId + '/rubric', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ annotator, criteria, confirm: !!confirm }),
+    })
+      .then(r => r.json())
+      .then(rubric => {
+        const key = cat + ':' + stableId + ':' + annotator;
+        this.RUBRIC_CACHE[key] = { ...(this.RUBRIC_CACHE[key] || {}), rubric };
+        this.setState({ rubricStatus: rubric.status });
+        if (this.state.selUnit) this._setUnitStatus(this.state.selUnit, rubric);
+      });
   }
 
   downloadData() {
-    // Labels come from the server CSV (has real query_id and text).
-    // Guidelines are client-side only, appended after.
+    // Guidelines (structured rubrics) are server-persisted in SQLite, not
+    // exported through this client-side CSV.
     fetch('/api/labels/export').then(r => r.text()).then(labelsCsv => {
-      const guideRows = [['domain', 'kind', 'id', 'value']];
-      Object.keys(this.state.guides).forEach(ck => {
-        Object.keys(this.state.guides[ck]).forEach(uid => {
-          const g = this.state.guides[ck][uid];
-          guideRows.push([ck, 'guideline', uid, '"' + (g.text || '').replace(/"/g, "'") + '" (' + (g.done ? 'done' : 'draft') + ')']);
-        });
-      });
-      const guidesCsv = guideRows.map(r => r.join(',')).join('\n');
-      const full = labelsCsv.trimEnd() + '\n\n' + guidesCsv;
-      const blob = new Blob([full], { type: 'text/csv' });
+      const blob = new Blob([labelsCsv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'safespoon_annotations.csv';
@@ -895,71 +1113,16 @@ class Component extends DCLogic {
   }
 
   // ---------- style helpers ----------
-  _tab(active) {
-    return 'border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:' + (active ? '600' : '500') + ';padding:5px 13px;border-radius:7px;transition:all .15s;' +
-      (active ? 'background:var(--panel,#f7f8f6);color:var(--accent,#0b758e);box-shadow:0 1px 3px rgba(0,0,0,.07);' : 'background:transparent;color:var(--ink3,#8a9389);');
-  }
-  _catTab(active, color) {
-    return 'display:flex;align-items:center;gap:7px;border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:' + (active ? '600' : '400') + ';padding:10px 13px;background:transparent;transition:all .15s;border-bottom:2px solid ' +
-      (active ? 'var(--accent,#0b758e)' : 'transparent') + ';color:' + (active ? 'var(--ink,#1a1e1b)' : 'var(--ink3,#8a9389)') + ';';
-  }
-  _statusChip(status) {
-    const map = {
-      done: 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);',
-      draft: 'background:#fdf3e3;color:#b9762f;',
-      empty: 'background:var(--track,#eceef2);color:var(--ink3,#98a0ab);',
-    };
-    return 'font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:99px;flex-shrink:0;' + map[status];
-  }
-  _statusLabel(status) { return { done: 'Guideline ready', draft: 'Draft', empty: 'Needs guideline' }[status]; }
-  _statusDot(status) {
-    const c = { done: 'var(--accent,#0b758e)', draft: '#c48a2a', empty: '#c4c8c0' }[status];
-    return 'width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + c + ';';
-  }
-  _labelChk(on) { return 'lbl-chk' + (on ? ' lbl-chk-on' : ''); }
-
-  // ---------- pagination ----------
-  _queryRow(qi) {
-    const cat = this.cat();
-    const l = this.getLabel(qi);
-    const self = this;
-    return {
-      qi, text: cat.queries[qi],
-      labels: this.LABEL_FIELDS.map(lf => {
-        const val = !!l[lf.field];
-        return {
-          text: lf.label,
-          checked: val,
-          cls: self._labelChk(val),
-          onChange: (e) => self.setLabel(qi, lf.field, e.target.checked),
-        };
-      }),
-    };
-  }
-  _paginate(qis, page) {
-    const PS = 20;
-    const total = qis.length;
-    const totalPages = Math.max(1, Math.ceil(total / PS));
-    const p = Math.min(Math.max(0, page), totalPages - 1);
-    const from = p * PS;
-    const to = Math.min(from + PS, total);
-    return { items: qis.slice(from, to), page: p, totalPages, total, hasPrev: p > 0, hasNext: p < totalPages - 1,
-      label: total === 0 ? '' : (from + 1) + '–' + to + ' of ' + total };
-  }
-  _buildPager(allQis, page, setPage) {
-    const pg = this._paginate(allQis, page);
-    return {
-      items: pg.items.map(qi => this._queryRow(qi)),
-      pager: {
-        show: pg.totalPages > 1,
-        label: pg.label,
-        prevClass: 'pager-btn ' + (pg.hasPrev ? 'pager-btn-on' : 'pager-btn-off'),
-        nextClass: 'pager-btn ' + (pg.hasNext ? 'pager-btn-on' : 'pager-btn-off'),
-        onPrev: pg.hasPrev ? () => setPage(pg.page - 1) : () => {},
-        onNext: pg.hasNext ? () => setPage(pg.page + 1) : () => {},
-      },
-    };
-  }
+  // Style helpers delegate to static/js/ui_helpers.js (pure functions, no
+  // `this`) — kept as same-named methods so the many call sites below don't
+  // need to change. See that file's header comment for why this can't just
+  // be one bigger split of the reactive Component class itself.
+  _tab(active) { return SafeSpoonHelpers.tabStyle(active); }
+  _catTab(active, color) { return SafeSpoonHelpers.catTabStyle(active, color); }
+  _statusChip(status) { return SafeSpoonHelpers.statusChipStyle(status); }
+  _statusLabel(status) { return SafeSpoonHelpers.statusLabel(status); }
+  _statusDot(status) { return SafeSpoonHelpers.statusDotStyle(status); }
+  _labelChk(on) { return SafeSpoonHelpers.labelCheckStyle(on); }
 
   // ---------- breadcrumb / path ----------
   pathTo(id, rootId) {
@@ -1016,16 +1179,16 @@ class Component extends DCLogic {
       const indent = Math.min(10 + depth * 16, 84);
       if (x.unit) {
         const n = x.node;
-        const status = self.guideStatus(x.id);
+        const status = self.unitStatus(x.id);
         rows.push({
           id: x.id, isUnit: true,
           toggle: '', toggleStyle: 'width:14px;flex-shrink:0;',
           rank: x.priority_rank,
           badgeStyle: 'font-weight:600;font-size:11px;color:var(--panel,#f7f8f6);background:var(--accent,#0b758e);min-width:20px;height:20px;padding:0 5px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;',
-          label: self.unitLabel(n), size: n.size,
+          label: x.label || self.unitLabel(n), size: n.size,
           fontSize: '12.5px', weight: '600', textColor: 'var(--ink,#1a1e1b)',
           statusDot: self._statusDot(status),
-          onToggle: () => {}, onClick: () => self.selectUnit(x.id),
+          onToggle: () => {}, onClick: () => self.selectUnit(x.id, x.stableId),
           rowClass: 'tree-row tree-branch-d' + Math.min(depth, 3) + (sel === x.id ? ' tree-active' : ''),
           rowStyle: 'display:flex;align-items:center;gap:7px;padding:6px 12px 6px ' + indent + 'px;cursor:pointer;transition:background .1s;' + (sel === x.id ? 'background:rgba(11,117,142,0.08);' : ''),
         });
@@ -1061,10 +1224,15 @@ class Component extends DCLogic {
       const l = self.getLabel(qi);
       return {
         qi, text: cat.queries[qi],
-        trash: l.trash, demo: l.demo,
-        trashStyle: self._labelChk(l.trash), demoStyle: self._labelChk(l.demo),
-        onTrash: (e) => self.setLabel(qi, 'trash', e.target.checked),
-        onDemo: (e) => self.setLabel(qi, 'demo', e.target.checked),
+        labels: self.LABEL_FIELDS.map(lf => {
+          const val = !!l[lf.field];
+          return {
+            text: lf.label,
+            checked: val,
+            style: self._labelChk(val),
+            onChange: (e) => self.setLabel(qi, lf.field, e.target.checked),
+          };
+        }),
       };
     });
   }
@@ -1078,13 +1246,13 @@ class Component extends DCLogic {
     const cat = this.cat();
     const m = this.meta();
     const T = cat.topics.length;
+    const activeView = this._viewEnabled(s.view) ? s.view : this._firstEnabledView();
     const accent = m.color;
     const accentSoft = m.soft || this._soft(accent);
     const warm = (this.props.background || 'Gray') === 'Warm';
     const P = warm
       ? { bg: '#f0ede8', panel: '#faf8f5', surface: '#f3f0ea', border: '#e4ddd3', track: '#ebe5da', chip: '#e8e2d8', ink: '#1e1e1c', ink2: '#5c5750', ink3: '#8f8880', ink4: '#bbb5ae' }
       : { bg: '#e8eae6', panel: '#f7f8f6', surface: '#eef0ec', border: '#dde0da', track: '#e4e7e1', chip: '#e8eae5', ink: '#1a1e1b', ink2: '#545c55', ink3: '#8a9389', ink4: '#b8c0b9' };
-    const activeView = this._viewEnabled(s.view) ? s.view : this._firstEnabledView();
     const out = {
       accent, accentSoft,
       pBg: P.bg, pPanel: P.panel, pSurface: P.surface, pBorder: P.border, pTrack: P.track, pChip: P.chip, pInk: P.ink, pInk2: P.ink2, pInk3: P.ink3, pInk4: P.ink4,
@@ -1141,7 +1309,6 @@ class Component extends DCLogic {
           style: 'font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:7px;' + (last ? 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);' : 'color:var(--accent,#0b758e);'),
         };
       });
-      const gPd = this._buildPager(this.reprOf(focusNode), s.gQueryPage, p => this.setState({ gQueryPage: p }));
       out.gDetail = {
         title: this.unitLabel(clRoot),
         subtitle: clRoot.size + ' queries in this group',
@@ -1149,11 +1316,10 @@ class Component extends DCLogic {
         themeBars: this.themeBars(focusNode),
         treeRows: this.clusterRows(clRoot),
         queryHeader: (focusNode.id === clRoot.id ? 'All queries' : 'Queries in this sub-group') + ' (' + focusNode.size + ')',
-        queries: gPd.items,
-        queryPager: gPd.pager,
+        queries: this.queryRows(focusNode),
       };
     } else {
-      out.gDetail = { title: '', subtitle: '', breadcrumb: [], themeBars: [], treeRows: [], queryHeader: '', queries: [], queryPager: { show: false } };
+      out.gDetail = { title: '', subtitle: '', breadcrumb: [], themeBars: [], treeRows: [], queryHeader: '', queries: [] };
     }
 
     // ----- themes -----
@@ -1162,84 +1328,25 @@ class Component extends DCLogic {
     out.modeMap = () => this.setState({ tMode: 'map' });
     out.themeCardsTabStyle = this._tab(s.tMode === 'cards');
     out.themeMapTabStyle = this._tab(s.tMode === 'map');
-    const topicTotals = new Array(T).fill(0);
-    if (cat.thetas && cat.thetas.length) {
-      cat.thetas.forEach(theta => {
-        for (let k = 0; k < T; k++) topicTotals[k] += theta[k] || 0;
-      });
-    } else {
-      // Fallback for legacy payloads without per-query topic distributions.
-      Object.values(cat.byId).forEach(n => { if (n.leaf) topicTotals[n.topic]++; });
-    }
-    const topicTotalMass = topicTotals.reduce((a, v) => a + v, 0) || 1;
-    const topicShare = topicTotals.map(v => v / topicTotalMass);
-    const alphaTotals = cat.topics.map(tp => Math.max(0, tp.alpha || 0));
-    const alphaMass = alphaTotals.reduce((a, v) => a + v, 0);
-    const alphaShare = alphaMass > 0 ? alphaTotals.map(v => v / alphaMass) : topicShare;
-    const displayShare = alphaShare;
+    const prev = new Array(T).fill(0);
+    Object.values(cat.byId).forEach(n => { if (n.leaf) prev[n.topic]++; });
+    const totLeaf = prev.reduce((a, v) => a + v, 0) || 1;
     out.topicCards = cat.topics.map((tp, j) => ({
       num: j + 1, label: tp.label, color: this.topicColor(j),
-      words: tp.words.slice(0, 10).map(w => ({ w })),
-      pct: displayShare[j], pctLabel: Math.round(displayShare[j] * 100) + '%',
-      prevWidth: (displayShare[j] * 100).toFixed(0) + '%',
+      words: tp.words.slice(0, 5).map(w => ({ w })),
+      pct: prev[j] / totLeaf, pctLabel: Math.round(prev[j] / totLeaf * 100) + '%',
+      prevWidth: (prev[j] / Math.max.apply(null, prev) * 100).toFixed(0) + '%',
       selected: s.selTopic === j,
       onClick: () => this.selectTopic(j),
       style: 'background:var(--panel,#ffffff);border:1px solid ' + (s.selTopic === j ? this.topicColor(j) : 'var(--border,#e3e6eb)') + ';border-radius:13px;padding:15px;cursor:pointer;transition:all .15s;' + (s.selTopic === j ? 'box-shadow:0 0 0 1px ' + this.topicColor(j) + ';' : ''),
     }));
     // bubbles
-    const W = 800, H = 620;
-    const xs = cat.topics.map(tp => tp.x);
-    const ys = cat.topics.map(tp => tp.y);
-    const xlo = Math.min.apply(null, xs), xhi = Math.max.apply(null, xs);
-    const ylo = Math.min.apply(null, ys), yhi = Math.max.apply(null, ys);
-    const normCoord = (v, lo, hi) => (lo === hi ? 0.5 : (v - lo) / (hi - lo));
-    const maxAlphaShare = Math.max.apply(null, alphaShare);
-    const bubbleR = cat.topics.map((_, j) => {
-      const frac = alphaShare[j] / (maxAlphaShare || 1);
-      return 36 + frac * 70;
-    });
-    const anchors = cat.topics.map((tp, j) => ({
-      x: 80 + (0.1 + 0.8 * normCoord(tp.x, xlo, xhi)) * (W - 160),
-      y: 80 + (0.1 + 0.8 * normCoord(tp.y, ylo, yhi)) * (H - 160),
-      r: bubbleR[j],
-    }));
-    const placed = anchors.map(a => ({ x: a.x, y: a.y, r: a.r }));
-    for (let iter = 0; iter < 120; iter++) {
-      for (let i = 0; i < placed.length; i++) {
-        for (let j = i + 1; j < placed.length; j++) {
-          const pi = placed[i], pj = placed[j];
-          let dx = pj.x - pi.x;
-          let dy = pj.y - pi.y;
-          let dist = Math.hypot(dx, dy);
-          if (dist < 1e-3) {
-            dx = 0.01 * (j - i || 1);
-            dy = 0.01 * ((i + j) % 2 ? 1 : -1);
-            dist = Math.hypot(dx, dy);
-          }
-          const minDist = pi.r + pj.r + 6;
-          if (dist < minDist) {
-            const push = (minDist - dist) * 0.5;
-            const nx = dx / dist;
-            const ny = dy / dist;
-            pi.x -= nx * push;
-            pi.y -= ny * push;
-            pj.x += nx * push;
-            pj.y += ny * push;
-          }
-        }
-      }
-      for (let i = 0; i < placed.length; i++) {
-        const p = placed[i], a = anchors[i];
-        p.x += (a.x - p.x) * 0.08;
-        p.y += (a.y - p.y) * 0.08;
-        p.x = Math.max(p.r + 8, Math.min(W - p.r - 8, p.x));
-        p.y = Math.max(p.r + 8, Math.min(H - p.r - 8, p.y));
-      }
-    }
+    const W = 800, H = 620, maxPrev = Math.max.apply(null, prev);
     out.bubbles = cat.topics.map((tp, j) => {
-      const r = placed[j].r;
-      const cx = placed[j].x;
-      const cy = placed[j].y;
+      const frac = prev[j] / maxPrev;
+      const r = 55 + frac * 90;
+      const cx = 80 + tp.x * (W - 160);
+      const cy = 80 + tp.y * (H - 160);
       const tint = this.topicColor(j);
       const sel = s.selTopic === j;
       const label = tp.label.length > 22 ? tp.label.slice(0, 20) + '\u2026' : tp.label;
@@ -1247,8 +1354,7 @@ class Component extends DCLogic {
       return {
         j, cx: cx.toFixed(0), cy: cy.toFixed(0), r: r.toFixed(0),
         fill: this._rgba(tint, sel ? 0.32 : 0.16), stroke: tint, sw: sel ? 3 : 1.5,
-        label, pctLabel: Math.round(displayShare[j] * 100) + '%',
-        tooltip: tp.label + ' | alpha ' + (tp.alpha || 0).toFixed(6) + ' | coords (' + tp.x.toFixed(4) + ', ' + tp.y.toFixed(4) + ')',
+        label, pctLabel: Math.round(prev[j] / totLeaf * 100) + '%',
         labelStyle: 'position:absolute;left:' + (cx/800*100).toFixed(2) + '%;top:' + (cy/620*100).toFixed(2) + '%;transform:translate(-50%,-50%);text-align:center;width:' + (r * 1.8).toFixed(0) + 'px;',
         labelTextStyle: 'font-size:' + fs + 'px;font-weight:600;color:' + tint + ';line-height:1.3;overflow-wrap:break-word;',
         onClick: () => this.selectTopic(j),
@@ -1264,22 +1370,28 @@ class Component extends DCLogic {
     out.zoomIn = () => { const { mapZoom: z, mapPanX: px, mapPanY: py } = this.state; this.setState({ mapZoom: Math.min(8, z * 1.3) }); };
     out.zoomOut = () => { const { mapZoom: z } = this.state; this.setState({ mapZoom: Math.max(0.3, z / 1.3) }); };
     out.resetMap = () => this._resetMap();
-    out.themeDetailWidth = s.themeDetailWidth || 480;
-    out.onThemePanelDown = (e) => this._onThemePanelDown(e);
-    out.onThemePanelMove = (e) => this._onThemePanelMove(e);
-    out.onThemePanelUp = () => this._onThemePanelUp();
-    out.themesRowStyle = 'flex: 1; display: flex; overflow: hidden;' + (s._themePanelDrag ? 'cursor: col-resize; user-select: none;' : '');
-    out.themeHandleClass = 'theme-resize-handle' + (s._themePanelDrag ? ' is-dragging' : '');
     out.topicSelected = true;
     const tj = s.selTopic;
     const tSelf = this;
-    const tPd = this._buildPager(cat.topDocs[tj] || [], s.tQueryPage, p => this.setState({ tQueryPage: p }));
     out.tDetail = {
       num: tj + 1, label: cat.topics[tj].label,
       words: cat.topics[tj].words.map(w => ({ w })),
-      pctLabel: Math.round(displayShare[tj] * 100) + '%',
-      queries: tPd.items,
-      queryPager: tPd.pager,
+      pctLabel: Math.round(prev[tj] / totLeaf * 100) + '%',
+      queries: (cat.topDocs[tj] || []).slice(0, this.UI.theme_typical_queries_max).map(qi => {
+        const l = tSelf.getLabel(qi);
+        return {
+          qi, text: cat.queries[qi],
+          labels: tSelf.LABEL_FIELDS.map(lf => {
+            const val = !!l[lf.field];
+            return {
+              text: lf.label,
+              checked: val,
+              style: tSelf._labelChk(val),
+              onChange: (e) => tSelf.setLabel(qi, lf.field, e.target.checked),
+            };
+          }),
+        };
+      }),
     };
 
     // ----- units -----
@@ -1294,20 +1406,20 @@ class Component extends DCLogic {
 
     const ud = this.unitData();
     const total = ud.units.length;
-    const written = ud.units.filter(u => this.guideStatus(u.id) === 'done').length;
+    const written = ud.units.filter(u => this.unitStatus(u.id) === 'done').length;
     out.unitsTotal = total; out.unitsWritten = written;
     out.unitProgressText = written + ' of ' + total + ' done';
     out.progressPct = (total ? (written / total * 100) : 0).toFixed(0) + '%';
 
     out.unitTreeRows = this.unitTreeRows();
     out.priorityList = ud.units.slice().sort((a, b) => a.priority_rank - b.priority_rank).map(u => {
-      const status = this.guideStatus(u.id);
+      const status = this.unitStatus(u.id);
       const sel = s.selUnit === u.id;
       return {
-        id: u.id, rank: u.priority_rank, label: this.unitLabel(u.node),
+        id: u.id, rank: u.priority_rank, label: u.label || this.unitLabel(u.node),
         size: u.node.size, diversity: Math.round(u.node.topic_mixture * 100) + '%',
         statusLabel: this._statusLabel(status), statusChip: this._statusChip(status),
-        selected: sel, onClick: () => this.selectUnit(u.id),
+        selected: sel, onClick: () => this.selectUnit(u.id, u.stableId),
         style: 'border:1px solid ' + (sel ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (sel ? 'var(--soft,#d9eff3)' : 'var(--panel,#f7f8f6)') + ';border-radius:9px;padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#0b758e);' : ''),
       };
     });
@@ -1320,44 +1432,109 @@ class Component extends DCLogic {
     if (out.unitSelected) {
       const u = ud.units.find(x => x.id === s.selUnit) || { node: cat.byId[s.selUnit], priority_rank: '\u2013' };
       const n = u.node;
-      const status = this.guideStatus(s.selUnit);
+      const status = this.unitStatus(s.selUnit);
+
       out.uDetail = {
-        rank: u.priority_rank, label: this.unitLabel(n), size: n.size,
+        rank: u.priority_rank, label: u.label || this.unitLabel(n), size: n.size,
         diversity: Math.round(n.topic_mixture * 100) + '%',
         priority: Math.round((u.priority || 0) * 100) + '%',
         statusChip: this._statusChip(status), statusLabel: this._statusLabel(status),
         themeBars: this.themeBars(n),
-        ...(() => { const uPd = this._buildPager(this.reprOf(n), s.uQueryPage, p => this.setState({ uQueryPage: p })); return { queries: uPd.items, queryPager: uPd.pager }; })(),
-        guideline: this.guideText(s.selUnit),
+        queries: this.queryRows(n),
+        note: u.note || '',
       };
-      out.onGuidelineInput = (e) => this.setGuide(s.selUnit, e.target.value, null);
-      out.suggestDraft = () => this.suggestDraft(u);
-      out.markDone = () => this.setGuide(s.selUnit, null, status !== 'done');
-      out.markDoneLabel = status === 'done' ? '✓ Ready' : 'Mark ready';
-      out.markDoneStyle = 'border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:12px;padding:7px 14px;border-radius:7px;transition:all .15s;' +
-        (status === 'done' ? 'background:var(--accent,#0b758e);color:var(--panel,#f7f8f6);' : 'background:var(--soft,#d9eff3);color:var(--accent,#0b758e);');
+      out.hasNote = !!u.note;
     } else {
-      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], queryPager: { show: false }, guideline: '' };
-      out.onGuidelineInput = () => {}; out.suggestDraft = () => {}; out.markDone = () => {};
-      out.markDoneLabel = ''; out.markDoneStyle = 'display:none;';
+      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], note: '' };
+      out.hasNote = false;
     }
+
+    // ---------- structured safety rubric (server-persisted) ----------
+    const profiles = this.RISK_PROFILES[s.catKey] || [];
+    out.riskProfiles = profiles.map(p => ({
+      id: p.id, name: p.name, severity: p.severity_rank, description: p.description,
+      onDelete: () => this.deleteRiskProfile(p.id),
+    }));
+    out.hasRiskProfiles = profiles.length > 0;
+    out.newProfileName = s.newProfileName;
+    out.newProfileDesc = s.newProfileDesc;
+    out.newProfileSeverity = s.newProfileSeverity;
+    out.onNewProfileName = (e) => this.setState({ newProfileName: e.target.value });
+    out.onNewProfileDesc = (e) => this.setState({ newProfileDesc: e.target.value });
+    out.onNewProfileSeverity = (e) => this.setState({ newProfileSeverity: e.target.value });
+    out.addRiskProfile = () => this.addRiskProfile();
+    out.annotator = s.annotator;
+    out.onAnnotatorInput = (e) => this.setAnnotator(e.target.value);
+
+    out.rubricLoading = s.rubricLoading;
+    out.rubricSuggesting = s.rubricSuggesting;
+    out.suggestButtonLabel = s.rubricSuggesting ? 'Suggesting…' : '✦ Suggest via LLM';
+    out.hasRubricError = !!s.rubricError;
+    out.rubricError = s.rubricError || '';
+    out.rubricStatusLabel = { empty: 'No guideline yet', draft: 'Draft', submitted: 'Submitted', confirmed: 'Confirmed' }[s.rubricStatus] || s.rubricStatus;
+
+    out.hasCandidates = !!(s.rubricCandidates && s.rubricCandidates.length);
+    out.rubricCandidatesList = (s.rubricCandidates || []).map((c, i) => {
+      const applied = s.rubricAppliedIndex === i;
+      return {
+        index: i + 1,
+        applied,
+        pickLabel: applied ? '✓ Applied' : 'Use this',
+        preview: (c || []).map(crit => crit.title).filter(Boolean).join(', ') || '(untitled criteria)',
+        cardStyle: 'flex: 1; min-width: 200px; text-align: left; cursor: pointer; font-family: inherit; border-radius: 9px; padding: 9px 12px; ' +
+          (applied ? 'border: 1px solid #7a5c99; background: #f0e8f7;' : 'border: 1px solid #d9c8ea; background: var(--panel,#ffffff);'),
+        pickStyle: applied
+          ? 'border: none; background: #7a5c99; color: #fff; font-weight: 600; font-size: 10.5px; padding: 3px 9px; border-radius: 99px; cursor: default; font-family: inherit;'
+          : 'border: 1px solid #7a5c99; background: transparent; color: #7a5c99; font-weight: 600; font-size: 10.5px; padding: 3px 9px; border-radius: 99px; cursor: pointer; font-family: inherit;',
+        onPick: () => this.applyCandidate(c, i),
+      };
+    });
+
+    // Parent (exact superset match from an earlier, coarser pipeline run —
+    // see annotation/lineage.py) takes priority over "similar" (semantic
+    // similarity match) since it's a strictly stronger signal.
+    out.hasParentRubric = !!(s.rubricParent && s.rubricParent.criteria && s.rubricParent.criteria.length);
+    out.parentRubricPreview = out.hasParentRubric ? s.rubricParent.criteria.map(c => c.title).join(', ') : '';
+    out.inheritParent = () => s.rubricParent && this.inheritRubric(s.rubricParent);
+
+    out.hasSimilarConfirmed = !!(s.rubricSimilar && s.rubricSimilar.length);
+    out.similarConfirmedList = (s.rubricSimilar || []).map((sim) => ({
+      pct: Math.round(sim.similarity * 100) + '%',
+      preview: (sim.rubric.criteria || []).map(c => c.title).join(', ') || '(untitled criteria)',
+      onUse: () => this.inheritRubric(sim.rubric),
+    }));
+
+    const currentUnit = out.unitSelected ? ud.units.find(x => x.id === s.selUnit) : null;
+    out.canEditRubric = out.unitSelected && profiles.length > 0 && !!currentUnit;
+    out.rubricNeedsProfiles = out.unitSelected && profiles.length === 0;
+    out.suggestRubric = () => currentUnit && this.requestRubricSuggestions(currentUnit.stableId);
+    out.rubricCriteria = (s.rubricDraft || []).map((crit, ci) => ({
+      index: ci,
+      title: crit.title,
+      description: crit.description,
+      onTitleInput: (e) => this.updateCriterionField(ci, 'title', e.target.value),
+      onDescInput: (e) => this.updateCriterionField(ci, 'description', e.target.value),
+      onRemove: () => this.removeCriterionRow(ci),
+      cells: profiles.map(p => {
+        const cell = crit.cells[p.id] || this._emptyCell();
+        return {
+          profileId: p.id, profileName: p.name, isOverride: !!cell.is_override,
+          expected: cell.expected_behavior, signals: cell.risk_signals,
+          onExpectedInput: (e) => this.updateCellField(ci, p.id, 'expected_behavior', e.target.value),
+          onSignalsInput: (e) => this.updateCellField(ci, p.id, 'risk_signals', e.target.value),
+        };
+      }),
+    }));
+    out.addCriterion = () => this.addCriterionRow();
+    out.saveRubricDraft = () => currentUnit && this.saveRubric(currentUnit.stableId, false);
+    out.confirmRubric = () => currentUnit && this.saveRubric(currentUnit.stableId, true);
 
     out.loading = false;
     return out;
   }
 
-  _soft(hex) {
-    try {
-      const n = parseInt(hex.slice(1), 16);
-      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-      const mix = (c) => Math.round(c + (255 - c) * 0.87);
-      return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
-    } catch (e) { return '#d9eff3'; }
-  }
-  _rgba(hex, a) {
-    const n = parseInt(hex.slice(1), 16);
-    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
-  }
+  _soft(hex) { return SafeSpoonHelpers.softColor(hex); }
+  _rgba(hex, a) { return SafeSpoonHelpers.rgbaColor(hex, a); }
 
 }
 </script>
