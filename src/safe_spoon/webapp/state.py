@@ -29,6 +29,7 @@ class AppState:
         self.ui_display = cfg["ui_display"]
 
         self._data: Optional[dict] = None
+        self._data_mtime: Optional[float] = None
         self.labels: dict = {}
         self.unit_cache: dict = {}     # cat -> serialised annotation-unit payload
         self.safety_cache: dict = {}   # cat -> {unit_node_id: float}
@@ -51,9 +52,17 @@ class AppState:
         return annotation_store.get_connection(self.annotation_db)
 
     def get_data(self) -> dict:
-        if self._data is None:
+        mtime = Path(self.data_file).stat().st_mtime
+        if self._data is None or mtime != self._data_mtime:
             log.info("Loading data from %s", self.data_file)
             self._data = json.load(open(self.data_file, encoding="utf-8"))
+            self._data_mtime = mtime
+            # Pipeline reran and rewrote output_json: any cached, tree-derived
+            # state (unit ids, safety scores, leaf indices) is now stale.
+            self.unit_cache = {}
+            self.safety_cache = {}
+            self.safety_status = {}
+            self.leaf_index_cache = {}
             log.info("Data loaded.")
         return self._data
 

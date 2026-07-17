@@ -329,7 +329,6 @@
               </div>
               <div style="display: flex; gap: 14px; margin-top: 7px; margin-left: 31px;">
                 <span style="font-size: 11px; color: var(--ink3,#8a9389); font-weight: 500;">{{ u.size }} queries</span>
-                <span style="font-size: 11px; color: var(--ink3,#8a9389); font-weight: 500;">{{ u.diversity }} mixed</span>
               </div>
             </div>
           </sc-for>
@@ -350,15 +349,15 @@
             <!-- plain-language stats -->
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
               <div style="background: var(--soft, #d9eff3); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--accent, #0b758e);">{{ uDetail.size }}</div><div style="font-size: 10.5px; color: var(--ink2,#545c55); font-weight: 500; margin-top: 1px;">queries</div></div>
-              <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ uDetail.diversity }}</div><div style="font-size: 10.5px; color: var(--ink3,#8a9389); font-weight: 500; margin-top: 1px;">theme mix</div></div>
+              <div style="{{ uDetail.cohesionCardStyle }}"><div style="{{ uDetail.cohesionValueStyle }}">{{ uDetail.cohesionPct }}</div><div style="font-size: 10.5px; color: var(--ink3,#8a9389); font-weight: 500; margin-top: 1px;">cohesion</div></div>
               <div style="background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 8px 13px;"><div style="font-size: 17px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ uDetail.priority }}</div><div style="font-size: 10.5px; color: var(--ink3,#8a9389); font-weight: 500; margin-top: 1px;">urgency</div></div>
             </div>
             <div style="margin-bottom: 22px;">
               <span onClick="{{ toggleGlossary }}" style="font-size: 11.5px; color: var(--accent, #0b758e); font-weight: 500; cursor: pointer;">{{ glossaryToggleLabel }}</span>
               <sc-if value="{{ showGlossary }}" hint-placeholder-val="{{ false }}">
                 <div style="margin-top: 8px; background: var(--panel,#f7f8f6); border: 1px solid var(--border,#dde0da); border-radius: 9px; padding: 12px 14px; font-size: 12px; line-height: 1.65; color: var(--ink2,#545c55);">
-                  <div><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Theme mix</strong> — how varied the queries are. A high mix means the group covers several topics, so its guideline needs to cover more ground.</div>
-                  <div style="margin-top: 5px;"><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Urgency</strong> — how soon this group should get a guideline. It's higher when the group is big, varied, and was formed from two evenly-sized halves.</div>
+                  <div><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Cohesion: </strong>how similar the queries are to each other. Low cohesion means the group is semantically scattered, so its guideline needs to cover more ground.</div>
+                  <div style="margin-top: 5px;"><strong style="color: var(--ink,#1a1e1b); font-weight: 600;">Urgency: </strong> how soon this group should get a guideline. It's higher when the group is big, varied, and was formed from two evenly-sized halves.</div>
                 </div>
               </sc-if>
             </div>
@@ -439,15 +438,26 @@
                 </sc-if>
 
                 <sc-if value="{{ hasCandidates }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;">LLM candidates — click to preview in the form below</div>
+                  <div style="font-size: 10.5px; color: var(--ink4,#b8c0b9); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;">LLM candidates — click a card to expand, click "Use this" to preview in the form below</div>
                   <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
                     <sc-for list="{{ rubricCandidatesList }}" as="c" hint-placeholder-count="3">
-                      <div onClick="{{ c.onPick }}" style="{{ c.cardStyle }}">
+                      <div onClick="{{ c.onToggle }}" style="{{ c.cardStyle }}">
                         <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 4px;">
-                          <span style="font-size: 11.5px; font-weight: 700; color: #7a5c99;">Candidate {{ c.index }}</span>
-                          <span style="{{ c.pickStyle }}">{{ c.pickLabel }}</span>
+                          <span style="font-size: 10px; color: var(--ink4,#b8c0b9); flex-shrink: 0;">{{ c.expandIcon }}</span>
+                          <span style="font-size: 11.5px; font-weight: 700; color: #7a5c99; flex: 1;">Candidate {{ c.index }}</span>
+                          <span onClick="{{ c.onPick }}" style="{{ c.pickStyle }}">{{ c.pickLabel }}</span>
                         </div>
                         <div style="font-size: 11px; line-height: 1.5; color: var(--ink2,#545c55);">{{ c.preview }}</div>
+                        <sc-if value="{{ c.expanded }}" hint-placeholder-val="{{ false }}">
+                          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 7px; border-top: 1px solid #e5d7ef; padding-top: 8px;">
+                            <sc-for list="{{ c.detailItems }}" as="d" hint-placeholder-count="2">
+                              <div>
+                                <div style="font-size: 11px; font-weight: 700; color: var(--ink,#1a1e1b);">{{ d.title }}</div>
+                                <div style="font-size: 10.5px; color: var(--ink3,#8a9389); line-height: 1.45;">{{ d.description }}</div>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
                       </div>
                     </sc-for>
                   </div>
@@ -532,8 +542,8 @@ class Component extends DCLogic {
     this.MAX_PURITY = 0.6;
     this.UI = {
       topic_words_max: 10,
-      theme_bars_max: 5,
-      theme_bar_min_weight: 0.08,
+      theme_bars_max: 6,
+      theme_bar_min_weight: 0.04,
       group_preview_queries: 3,
       representative_queries_max: 40,
       theme_typical_queries_max: 8,
@@ -566,7 +576,7 @@ class Component extends DCLogic {
       annotator: this._load('safespoon.annotator', 'annotator1'),
       newProfileName: '', newProfileDesc: '', newProfileSeverity: 1,
       rubricDraft: null, rubricStatus: 'empty', rubricLoading: false,
-      rubricCandidates: null, rubricAppliedIndex: null, rubricSuggesting: false, rubricError: null,
+      rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [], rubricSuggesting: false, rubricError: null,
       rubricParent: null, rubricSimilar: [],
     };
   }
@@ -674,7 +684,7 @@ class Component extends DCLogic {
         let domT = 0;
         theta.forEach((w, k) => { if (w > theta[domT]) domT = k; });
         qiToTopic[qi] = domT;
-        byId[nkey] = { id: nkey, leaf: true, qi, topic: domT, q: queries[qi], size: 1, theta, repr: [qi], parent: null };
+        byId[nkey] = { id: nkey, leaf: true, qi, topic: domT, q: queries[qi], size: 1, theta, repr: [qi], parent: null, intra_sim: flat.intra_sim ?? null };
       } else if (childrenDone) {
         const childKeys = flat.children_ids.map(String);
         const children = childKeys.map(ck => byId[ck]);
@@ -684,7 +694,7 @@ class Component extends DCLogic {
         for (let k = 0; k < T; k++) th[k] /= size;
         const repr = (flat.repr || []).slice(0, 50);
         const label = repr.length ? queries[repr[0]].slice(0, 60) : (flat.name || nkey);
-        byId[nkey] = { id: nkey, leaf: false, label, children, size, theta: th, repr, parent: null };
+        byId[nkey] = { id: nkey, leaf: false, label, children, size, theta: th, repr, parent: null, intra_sim: flat.intra_sim ?? null };
         children.forEach(c => { c.parent = byId[nkey]; });
       } else {
         postStack.push([nkey, true]);
@@ -697,6 +707,7 @@ class Component extends DCLogic {
       let dom = -1, domT = 0;
       n.theta.forEach((w, k) => { if (w > dom) { dom = w; domT = k; } });
       n.dominant_weight = dom; n.dominant_topic = domT; n.topic_mixture = 1 - dom;
+      n.heterogeneity = (n.intra_sim != null) ? +(1 - n.intra_sim).toFixed(4) : n.topic_mixture;
       if (n.leaf) { n.merge_balance = 1; n.dist = 0; }
       else {
         const sizes = n.children.map(c => c.size);
@@ -726,7 +737,11 @@ class Component extends DCLogic {
 
   themeBars(n) {
     const cat = this.cat();
-    const ranked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w).filter(x => x.w > this.UI.theme_bar_min_weight).slice(0, this.UI.theme_bars_max);
+    const allRanked = n.theta.map((w, j) => ({ j, w })).sort((a, b) => b.w - a.w);
+    let ranked = allRanked.filter(x => x.w > this.UI.theme_bar_min_weight).slice(0, this.UI.theme_bars_max);
+    // If the distribution is very flat, keep the top topic so the section
+    // does not render empty.
+    if (!ranked.length && allRanked.length) ranked = [allRanked[0]];
     if (!ranked.length) return [];
     const max = ranked[0].w;
     const bars = ranked.map(r => ({
@@ -752,6 +767,19 @@ class Component extends DCLogic {
       });
     }
     return bars;
+  }
+
+  // Cohesion = intra_sim (fallback: 1 - topic_mixture when embeddings aren't
+  // available). >= 0.5 reads as cohesive (green), below that as heterogeneous
+  // (amber) — a group whose queries don't resemble each other much.
+  cohesionStat(n) {
+    const val = (n.intra_sim != null) ? n.intra_sim : (1 - n.topic_mixture);
+    const cohesive = val >= 0.5;
+    const cardStyle = cohesive
+      ? 'background:#e3ecdc; border:1px solid #c3d6b4; border-radius:9px; padding:8px 13px;'
+      : 'background:#fdf3e3; border:1px solid #f0dcb0; border-radius:9px; padding:8px 13px;';
+    const valueStyle = 'font-size:17px; font-weight:700; color:' + (cohesive ? '#3f6b2e' : '#b9762f') + ';';
+    return { pct: Math.round(val * 100) + '%', cardStyle, valueStyle };
   }
 
   // ---------- clusters ----------
@@ -784,6 +812,8 @@ class Component extends DCLogic {
           topic_mixture: n.topic_mixture, merge_balance: n.merge_balance,
           repr: n.repr || [], leaf: false,
         };
+        catNode.intra_sim = n.intra_sim;
+        catNode.heterogeneity = n.heterogeneity;
         objById[nid] = {
           id: nid, unit: !!n.is_unit, branch: !n.is_unit,
           node: catNode, children: [],
@@ -839,7 +869,7 @@ class Component extends DCLogic {
     units.forEach(u => {
       const n = u.node;
       const sn = Math.log(1 + n.size) / Math.log(1 + maxSize);
-      u.priority = 0.5 * n.topic_mixture + 0.3 * sn + 0.2 * n.merge_balance;
+      u.priority = 0.50 * n.heterogeneity + 0.35 * sn + 0.15 * n.merge_balance;
     });
     units.slice().sort((a, b) => b.priority - a.priority).forEach((u, i) => { u.priority_rank = i + 1; });
     const rankById = {}; units.forEach(u => { rankById[u.id] = u.priority_rank; });
@@ -873,7 +903,7 @@ class Component extends DCLogic {
     this.setState({
       catKey: k, selCluster: null, focus: null, selUnit: null, cCollapsed: new Set(), uCollapsed: new Set(),
       gran: Math.min(4, this.CATS[k].queries.length), selTopic: 0,
-      rubricDraft: null, rubricStatus: 'empty', rubricCandidates: null, rubricAppliedIndex: null, rubricError: null,
+      rubricDraft: null, rubricStatus: 'empty', rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [], rubricError: null,
       rubricParent: null, rubricSimilar: [],
     });
   }
@@ -888,7 +918,7 @@ class Component extends DCLogic {
     this.setState({ [setKey]: s });
   }
   selectUnit(id, stableId) {
-    this.setState({ selUnit: id, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null });
+    this.setState({ selUnit: id, rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [], rubricError: null });
     this.loadRubricForUnit(id, stableId);
   }
   selectTopic(j) { this.setState({ selTopic: j }); }
@@ -988,13 +1018,13 @@ class Component extends DCLogic {
     if (cached) {
       this.setState({
         rubricDraft: this._normalizeCriteria(cached.rubric.criteria, this.RISK_PROFILES[cat] || []),
-        rubricStatus: cached.rubric.status, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null,
+        rubricStatus: cached.rubric.status, rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [], rubricError: null,
         rubricParent: cached.parent_rubric || null, rubricSimilar: cached.similar_confirmed || [],
       });
       this._setUnitStatus(unitId, cached.rubric);
       return;
     }
-    this.setState({ rubricLoading: true, rubricCandidates: null, rubricAppliedIndex: null, rubricError: null });
+    this.setState({ rubricLoading: true, rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [], rubricError: null });
     fetch('/api/units/' + encodeURIComponent(cat) + '/' + stableId + '/rubric?annotator=' + encodeURIComponent(annotator))
       .then(r => r.json())
       .then(data => {
@@ -1017,14 +1047,14 @@ class Component extends DCLogic {
     const cloned = SafeSpoonHelpers.cloneCriteriaForInherit(sourceRubric.criteria);
     this.setState({
       rubricDraft: this._normalizeCriteria(cloned, this.RISK_PROFILES[cat] || []),
-      rubricCandidates: null, rubricAppliedIndex: null,
+      rubricCandidates: null, rubricAppliedIndex: null, rubricExpandedCandidates: [],
     });
   }
 
   requestRubricSuggestions(stableId) {
     const cat = this.state.catKey;
     const annotator = this.state.annotator;
-    this.setState({ rubricSuggesting: true, rubricError: null, rubricAppliedIndex: null });
+    this.setState({ rubricSuggesting: true, rubricError: null, rubricAppliedIndex: null, rubricExpandedCandidates: [] });
     fetch('/api/units/' + encodeURIComponent(cat) + '/' + stableId + '/rubric/suggest?annotator=' + encodeURIComponent(annotator), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1047,6 +1077,15 @@ class Component extends DCLogic {
       rubricDraft: this._normalizeCriteria(candidate, this.RISK_PROFILES[cat] || []),
       rubricAppliedIndex: index,
     });
+  }
+
+  // Expand/collapse is independent of which candidate is applied, so the
+  // annotator can inspect several candidates' full criteria side by side
+  // before deciding which one to use.
+  toggleCandidateExpanded(index) {
+    const cur = this.state.rubricExpandedCandidates || [];
+    const next = cur.includes(index) ? cur.filter(i => i !== index) : cur.concat([index]);
+    this.setState({ rubricExpandedCandidates: next });
   }
 
   addCriterionRow() {
@@ -1417,7 +1456,7 @@ class Component extends DCLogic {
       const sel = s.selUnit === u.id;
       return {
         id: u.id, rank: u.priority_rank, label: u.label || this.unitLabel(u.node),
-        size: u.node.size, diversity: Math.round(u.node.topic_mixture * 100) + '%',
+        size: u.node.size,
         statusLabel: this._statusLabel(status), statusChip: this._statusChip(status),
         selected: sel, onClick: () => this.selectUnit(u.id, u.stableId),
         style: 'border:1px solid ' + (sel ? 'var(--accent,#0b758e)' : 'var(--border,#dde0da)') + ';background:' + (sel ? 'var(--soft,#d9eff3)' : 'var(--panel,#f7f8f6)') + ';border-radius:9px;padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .12s;' + (sel ? 'box-shadow:0 0 0 1px var(--accent,#0b758e);' : ''),
@@ -1434,9 +1473,10 @@ class Component extends DCLogic {
       const n = u.node;
       const status = this.unitStatus(s.selUnit);
 
+      const coh = this.cohesionStat(n);
       out.uDetail = {
         rank: u.priority_rank, label: u.label || this.unitLabel(n), size: n.size,
-        diversity: Math.round(n.topic_mixture * 100) + '%',
+        cohesionPct: coh.pct, cohesionCardStyle: coh.cardStyle, cohesionValueStyle: coh.valueStyle,
         priority: Math.round((u.priority || 0) * 100) + '%',
         statusChip: this._statusChip(status), statusLabel: this._statusLabel(status),
         themeBars: this.themeBars(n),
@@ -1445,7 +1485,7 @@ class Component extends DCLogic {
       };
       out.hasNote = !!u.note;
     } else {
-      out.uDetail = { rank: '', label: '', size: 0, diversity: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], note: '' };
+      out.uDetail = { rank: '', label: '', size: 0, cohesionPct: '', cohesionCardStyle: '', cohesionValueStyle: '', priority: '', statusChip: '', statusLabel: '', themeBars: [], queries: [], note: '' };
       out.hasNote = false;
     }
 
@@ -1474,19 +1514,32 @@ class Component extends DCLogic {
     out.rubricStatusLabel = { empty: 'No guideline yet', draft: 'Draft', submitted: 'Submitted', confirmed: 'Confirmed' }[s.rubricStatus] || s.rubricStatus;
 
     out.hasCandidates = !!(s.rubricCandidates && s.rubricCandidates.length);
+    const expandedCandidates = s.rubricExpandedCandidates || [];
     out.rubricCandidatesList = (s.rubricCandidates || []).map((c, i) => {
       const applied = s.rubricAppliedIndex === i;
+      const expanded = expandedCandidates.includes(i);
       return {
         index: i + 1,
         applied,
+        expanded,
+        expandIcon: expanded ? '▾' : '▸',
         pickLabel: applied ? '✓ Applied' : 'Use this',
         preview: (c || []).map(crit => crit.title).filter(Boolean).join(', ') || '(untitled criteria)',
+        detailItems: (c || []).map(crit => ({ title: crit.title || '(untitled)', description: crit.description || '' })),
         cardStyle: 'flex: 1; min-width: 200px; text-align: left; cursor: pointer; font-family: inherit; border-radius: 9px; padding: 9px 12px; ' +
           (applied ? 'border: 1px solid #7a5c99; background: #f0e8f7;' : 'border: 1px solid #d9c8ea; background: var(--panel,#ffffff);'),
         pickStyle: applied
-          ? 'border: none; background: #7a5c99; color: #fff; font-weight: 600; font-size: 10.5px; padding: 3px 9px; border-radius: 99px; cursor: default; font-family: inherit;'
+          ? 'border: none; background: #7a5c99; color: #fff; font-weight: 600; font-size: 10.5px; padding: 3px 9px; border-radius: 99px; cursor: pointer; font-family: inherit;'
           : 'border: 1px solid #7a5c99; background: transparent; color: #7a5c99; font-weight: 600; font-size: 10.5px; padding: 3px 9px; border-radius: 99px; cursor: pointer; font-family: inherit;',
-        onPick: () => this.applyCandidate(c, i),
+        onToggle: () => this.toggleCandidateExpanded(i),
+        // Once a candidate is applied, its badge is no longer a useful
+        // "apply again" target, so repurpose the click to expand/collapse
+        // instead of leaving it dead (cursor: default).
+        onPick: (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          if (applied) this.toggleCandidateExpanded(i);
+          else this.applyCandidate(c, i);
+        },
       };
     });
 

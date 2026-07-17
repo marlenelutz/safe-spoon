@@ -181,8 +181,8 @@ def load_yaml_config_file(config_path: str = "config/config.yaml") -> dict:
         "purity_factor": float(clustering.get("purity_factor", 15.0)),
         "max_purity_cap": float(clustering.get("max_purity_cap", 0.80)),
         "min_cohesion": float(clustering.get("min_cohesion", 0.0)),
-        "pw_mixture": float(pw.get("topic_mixture", 0.35)),
-        "pw_size": float(pw.get("size", 0.25)),
+        "pw_heterogeneity": float(pw.get("heterogeneity", 0.50)),
+        "pw_size": float(pw.get("size", 0.35)),
         "pw_balance": float(pw.get("merge_balance", 0.15)),
         "pw_safety": float(pw.get("safety_signal", 0.25)),
 

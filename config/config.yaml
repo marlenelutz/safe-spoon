@@ -53,15 +53,15 @@ clustering:
   linkage_method: complete
   n_repr_queries: 50
   n_cut_levels: 40
-  min_size: 20          # hard floor: nodes at/below this size always stop
-  max_rel_dist: 0.40    # normalised distance threshold for stopping:
+  min_size: 10          # hard floor: nodes at/below this size always stop
+  max_rel_dist: 0.80    # normalised distance threshold for stopping:
                         # node.dist / root.dist <= this -> cohesive, stop
-                        # needs to be tuned with the distance distribution of thee tree: p25 ≈ 0.30 (fine-grained)  p50 ≈ 0.40 (medium) p75 ≈ 0.51 (coarse)
+                        
 
 # priority queue weights
 priority_weights:
-  topic_mixture: 0.35  # 1 - dominant_weight: thematic ambiguity
-  size: 0.25           # log-normalised size
+  heterogeneity: 0.50  # 1 - intra_sim (fallback: 1 - dominant_weight): semantic heterogeneity of the unit's queries
+  size: 0.35           # log-normalised size
   merge_balance: 0.15  # how informative was the merge that created this unit
 
 # LLM settings 
@@ -80,7 +80,7 @@ llm:
 ui_display:
   topic_words_max: 15
   theme_bars_max: 5
-  theme_bar_min_weight: 0.1
+  theme_bar_min_weight: 0.06
   group_preview_queries: 3
   representative_queries_max: 40
   topic_top_docs_generated: 500

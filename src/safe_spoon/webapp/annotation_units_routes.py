@@ -54,7 +54,7 @@ def api_annotation_units(cat):
     unit_list = [n for n in unit_nodes if n.get("is_unit")]
     assign_priorities(
         unit_list,
-        pw_mixture=cfg["pw_mixture"],
+        pw_heterogeneity=cfg["pw_heterogeneity"],
         pw_size=cfg["pw_size"],
         pw_balance=cfg["pw_balance"],
     )

@@ -94,13 +94,14 @@ def compute_leaf_indices(
     leaf_indices : dict
         {node_id: [global_query_idx, ...]} for every node reachable from root.
     """
+    nodes_by_id = {str(k): v for k, v in nodes_by_id.items()}
     leaf_indices: Dict[str, List[int]] = {}
-    stack = [(root_id, False)]
+    stack = [(str(root_id), False)]
     while stack:
         nid, done = stack.pop()
         node = nodes_by_id[nid]
         if done:
-            cids = node.get("children_ids", [])
+            cids = [str(cid) for cid in node.get("children_ids", [])]
             if not cids:
                 leaf_indices[nid] = [node["id"]]
             else:
@@ -111,7 +112,7 @@ def compute_leaf_indices(
         else:
             stack.append((nid, True))
             for cid in node.get("children_ids", []):
-                stack.append((cid, False))
+                stack.append((str(cid), False))
     return leaf_indices
 
 
@@ -139,9 +140,10 @@ def build_unit_tree(
     Pass 3: output tree construction
         Post-order traversal.  Unit nodes become leaves of the annotation tree
         (their internal queries are collapsed).  Branching nodes become
-        internal nodes.  Three geometric signals are attached to each unit for
+        internal nodes.  Four geometric signals are attached to each unit for
         downstream priority scoring:
           topic_mixture  = 1 − dominant_weight
+          heterogeneity  = 1 − intra_sim (fallback: 1 − dominant_weight if no embeddings)
           size_norm = log(1 + size) / log(1 + max_size)
           merge_balance = min(size, sibling_size) / max(size, sibling_size)
 
@@ -172,6 +174,9 @@ def build_unit_tree(
         Number of annotation units.
     """
 
+    nodes_by_id = {str(k): v for k, v in nodes_by_id.items()}
+    root_id = str(root_id)
+
     # Normalisation constant: the root's distance is the maximum in the tree.
     max_dist = float(nodes_by_id[root_id].get("dist", 1.0)) or 1.0
 
@@ -195,7 +200,7 @@ def build_unit_tree(
         dominant_weight = float(mean_theta.max())
         dominant_topic = int(mean_theta.argmax())
 
-        cids = node.get("children_ids", [])
+        cids = [str(cid) for cid in node.get("children_ids", [])]
 
         # Record sibling sizes for merge_balance computation.
         if len(cids) == 2:
@@ -228,6 +233,13 @@ def build_unit_tree(
 
         is_unit = stop_reason != "recurse"
 
+        intra_sim = node.get("intra_sim")
+        heterogeneity = (
+            round(1.0 - intra_sim, 4)
+            if intra_sim is not None
+            else round(1.0 - dominant_weight, 4)
+        )
+
         classified[nid] = {
             "is_unit": is_unit,
             "stop_reason": stop_reason,
@@ -241,7 +253,8 @@ def build_unit_tree(
             "dominant_weight": round(dominant_weight, 4),
             "topic_mixture": round(1.0 - dominant_weight, 4),
             "merge_balance": merge_balance,
-            "intra_sim": node.get("intra_sim"),
+            "intra_sim": intra_sim,
+            "heterogeneity": heterogeneity,
             "cids": cids,
         }
 
@@ -313,6 +326,7 @@ def build_unit_tree(
                     "topic_mixture": nc["topic_mixture"],
                     "merge_balance": nc["merge_balance"],
                     "intra_sim": nc["intra_sim"],
+                    "heterogeneity": nc["heterogeneity"],
                     "stop_reason": nc["stop_reason"],
                     "children": [],
                 }
